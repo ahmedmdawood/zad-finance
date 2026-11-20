@@ -46,6 +46,8 @@ data class TransactionEntity(
     val toAccountId: Long? = null,
     val planId: Long? = null,
     val category: String = "أخرى",
+    val receiptPath: String? = null,
+    val deletedAt: Long? = null,
     val note: String = "",
     val createdAt: Long = System.currentTimeMillis(),
 )
@@ -112,6 +114,13 @@ data class PlanEntity(
     val createdAt: Long = System.currentTimeMillis(),
 )
 
+@Entity(tableName = "custom_categories")
+data class CategoryEntity(
+    @PrimaryKey val name: String,
+    val icon: String, // an emoji chosen by the user
+    val colorHex: String, // e.g. "#6F4E37"
+)
+
 @Entity(tableName = "category_budgets")
 data class BudgetEntity(
     @PrimaryKey val category: String,
@@ -146,8 +155,29 @@ interface ZadDao {
     @Query("DELETE FROM transactions WHERE id = :id")
     suspend fun deleteTransaction(id: Long)
 
-    @Query("SELECT * FROM transactions ORDER BY createdAt DESC")
+    @Query("UPDATE transactions SET deletedAt = :whenMs WHERE id = :id")
+    suspend fun softDeleteTransaction(id: Long, whenMs: Long)
+
+    @Query("UPDATE transactions SET deletedAt = NULL WHERE id = :id")
+    suspend fun restoreTransaction(id: Long)
+
+    @Query("SELECT * FROM transactions WHERE deletedAt IS NULL ORDER BY createdAt DESC")
     fun transactionsFlow(): Flow<List<TransactionEntity>>
+
+    @Query("SELECT * FROM transactions WHERE deletedAt IS NOT NULL ORDER BY deletedAt DESC")
+    fun trashFlow(): Flow<List<TransactionEntity>>
+
+    @Query("DELETE FROM transactions WHERE deletedAt IS NOT NULL AND deletedAt < :before")
+    suspend fun purgeOldTrash(before: Long)
+
+    @Insert
+    suspend fun insertCategory(category: CategoryEntity)
+
+    @Query("DELETE FROM custom_categories WHERE name = :name")
+    suspend fun deleteCategory(name: String)
+
+    @Query("SELECT * FROM custom_categories ORDER BY name ASC")
+    fun categoriesFlow(): Flow<List<CategoryEntity>>
 
     @Insert
     suspend fun insertDebt(debt: DebtEntity): Long
@@ -227,7 +257,7 @@ interface ZadDao {
         AccountEntity::class, TransactionEntity::class, DebtEntity::class,
         DebtPaymentEntity::class, SalaryConfirmationEntity::class,
         ObligationEntity::class, OccurrenceEntity::class,
-        PlanEntity::class, AllocationEntity::class, BudgetEntity::class,
+        PlanEntity::class, AllocationEntity::class, BudgetEntity::class, CategoryEntity::class,
     ],
     version = 1,
     exportSchema = false
@@ -259,6 +289,33 @@ abstract class ZadDatabase : RoomDatabase() {
 }
 
 /** Balance of one account from its opening balance plus all related transactions. */
+fun todayStartMillis(): Long {
+    val cal = java.util.Calendar.getInstance()
+    cal.set(java.util.Calendar.HOUR_OF_DAY, 0)
+    cal.set(java.util.Calendar.MINUTE, 0)
+    cal.set(java.util.Calendar.SECOND, 0)
+    cal.set(java.util.Calendar.MILLISECOND, 0)
+    return cal.timeInMillis
+}
+
+fun daysInCurrentMonth(): Int = java.util.Calendar.getInstance().getActualMaximum(java.util.Calendar.DAY_OF_MONTH)
+
+fun dayOfMonth(): Int = java.util.Calendar.getInstance().get(java.util.Calendar.DAY_OF_MONTH)
+
+/** Inclusive start and exclusive end of the month at the given offset from the current one. */
+fun monthBounds(offset: Int): Pair<Long, Long> {
+    val cal = java.util.Calendar.getInstance()
+    cal.set(java.util.Calendar.DAY_OF_MONTH, 1)
+    cal.set(java.util.Calendar.HOUR_OF_DAY, 0)
+    cal.set(java.util.Calendar.MINUTE, 0)
+    cal.set(java.util.Calendar.SECOND, 0)
+    cal.set(java.util.Calendar.MILLISECOND, 0)
+    cal.add(java.util.Calendar.MONTH, offset)
+    val start = cal.timeInMillis
+    cal.add(java.util.Calendar.MONTH, 1)
+    return start to cal.timeInMillis
+}
+
 fun accountBalance(account: AccountEntity, transactions: List<TransactionEntity>): Long {
     var bal = account.openingPiasters
     if (account.type == "CREDIT") {
@@ -330,9 +387,46 @@ class ZadPrefs(context: Context) {
         get() = prefs.getBoolean("privacy_hidden", false)
         set(v) = prefs.edit().putBoolean("privacy_hidden", v).apply()
 
+    /** -1 = theme default, 0 = light, 1 = dark. */
+    var darkOverride: Int
+        get() = prefs.getInt("dark_override", -1)
+        set(v) = prefs.edit().putInt("dark_override", v).apply()
+
     var voiceEntryEnabled: Boolean
         get() = prefs.getBoolean("voice_entry", false)
         set(v) = prefs.edit().putBoolean("voice_entry", v).apply()
+
+    var appLockEnabled: Boolean
+        get() = prefs.getBoolean("app_lock", false)
+        set(v) = prefs.edit().putBoolean("app_lock", v).apply()
+
+    var quickAddEnabled: Boolean
+        get() = prefs.getBoolean("quick_add", false)
+        set(v) = prefs.edit().putBoolean("quick_add", v).apply()
+
+    var weeklyDigestEnabled: Boolean
+        get() = prefs.getBoolean("weekly_digest", false)
+        set(v) = prefs.edit().putBoolean("weekly_digest", v).apply()
+
+    var dailyReminderEnabled: Boolean
+        get() = prefs.getBoolean("daily_reminder", false)
+        set(v) = prefs.edit().putBoolean("daily_reminder", v).apply()
+
+    var dailyReminderMinutes: Int
+        get() = prefs.getInt("daily_reminder_minutes", 20 * 60)
+        set(v) = prefs.edit().putInt("daily_reminder_minutes", v).apply()
+
+    var smsParsingEnabled: Boolean
+        get() = prefs.getBoolean("sms_parsing", false)
+        set(v) = prefs.edit().putBoolean("sms_parsing", v).apply()
+
+    var smsDefaultAccountId: Long
+        get() = prefs.getLong("sms_default_account", 0L)
+        set(v) = prefs.edit().putLong("sms_default_account", v).apply()
+
+    var projectionDismissed: Boolean
+        get() = prefs.getBoolean("projection_dismissed", false)
+        set(v) = prefs.edit().putBoolean("projection_dismissed", v).apply()
 
     var expectedSalaryExpression: String
         get() = prefs.getString("expected_salary_expression", "") ?: ""
