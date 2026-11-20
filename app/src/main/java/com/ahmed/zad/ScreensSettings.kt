@@ -138,11 +138,15 @@ fun SettingsTab(vm: MainViewModel) {
                     modifier = Modifier.fillMaxWidth(),
                 )
                 if (salaryDraft.isNotBlank()) {
-                    try {
-                        val (p, _) = evaluateToPiasters(salaryDraft)
-                        Text("= ${formatMoney(p)}", color = MaterialTheme.colorScheme.primary, fontSize = 13.sp)
+                    val salaryPreview = try {
+                        evaluateToPiasters(salaryDraft).first to null
                     } catch (e: EvalException) {
-                        Text(e.message ?: "خطأ", color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
+                        null to (e.message ?: "خطأ")
+                    }
+                    if (salaryPreview.first != null) {
+                        Text("= ${formatMoney(salaryPreview.first!!)}", color = MaterialTheme.colorScheme.primary, fontSize = 13.sp)
+                    } else {
+                        Text(salaryPreview.second ?: "", color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
                     }
                 }
                 Button(onClick = { vm.setExpectedSalary(salaryDraft.trim()) }) { Text("حفظ المرتب") }
