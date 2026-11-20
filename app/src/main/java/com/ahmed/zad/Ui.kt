@@ -45,21 +45,34 @@ val EXPENSE_CATEGORIES = listOf(
     "أكل", "مواصلات", "تسوق", "فواتير", "صحة", "تعليم", "ترفيه", "أخرى",
 )
 
+/** Friendly icon per preset category; custom categories carry their own emoji. */
+fun categoryEmoji(category: String): String = when (category) {
+    "أكل" -> "🍔"
+    "مواصلات" -> "🚌"
+    "تسوق" -> "🛒"
+    "فواتير" -> "💡"
+    "صحة" -> "💊"
+    "تعليم" -> "📚"
+    "ترفيه" -> "🎮"
+    else -> "📦"
+}
+
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun CategoryChips(selected: String, categories: List<String>, onSelect: (String) -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        categories.chunked(4).forEach { rowItems ->
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
-                rowItems.forEach { category ->
-                    androidx.compose.material3.FilterChip(
-                        selected = selected == category,
-                        onClick = { onSelect(category) },
-                        label = { Text(category, fontSize = 13.sp) },
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-                repeat(4 - rowItems.size) { Spacer(Modifier.weight(1f)) }
-            }
+    // Content-sized chips in a flow: Arabic labels never get squeezed into
+    // letter-by-letter wrapping.
+    androidx.compose.foundation.layout.FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        categories.forEach { category ->
+            androidx.compose.material3.FilterChip(
+                selected = selected == category,
+                onClick = { onSelect(category) },
+                label = { Text(categoryEmoji(category) + " " + category, fontSize = 13.sp, maxLines = 1) },
+            )
         }
     }
 }
@@ -233,17 +246,29 @@ fun ZadAppTheme(themeId: String, darkOverride: Int = -1, content: @Composable ()
     }
 }
 
-/** Small golden AD badge shown next to the founder's special identity. */
+/** Golden founder badge: gradient disc, thin light ring. */
 @Composable
 fun AdBadge(modifier: Modifier = Modifier) {
     Box(
         contentAlignment = Alignment.Center,
         modifier = modifier
-            .size(22.dp)
+            .size(26.dp)
             .clip(CircleShape)
-            .border(1.5.dp, GoldColor, CircleShape)
+            .background(
+                androidx.compose.ui.graphics.Brush.linearGradient(
+                    listOf(Color(0xFFF6D878), Color(0xFFC9A227), Color(0xFF8C6D1F))
+                )
+            )
+            .border(1.dp, Color(0xFFFFF3C4), CircleShape)
+            .padding(2.dp),
     ) {
-        Text("AD", color = GoldColor, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+        Text(
+            "AD",
+            color = Color(0xFF3B2E05),
+            fontSize = 10.sp,
+            fontWeight = FontWeight.ExtraBold,
+            letterSpacing = 0.5.sp,
+        )
     }
 }
 
