@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
@@ -22,6 +23,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -30,8 +32,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.unit.sp
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -78,6 +82,13 @@ fun HomeTab(vm: MainViewModel) {
     val special by vm.isSpecial.collectAsState()
     val salaryExpr by vm.expectedSalary.collectAsState()
     val confirmations by vm.salaryConfirmations.collectAsState()
+    val todaySpend by vm.todaySpendPiasters.collectAsState()
+    val remainingBudget by vm.remainingMonthBudgetPiasters.collectAsState()
+    val projection by vm.projectedMonthSpendPiasters.collectAsState()
+    val projectionDismissed by vm.projectionDismissed.collectAsState()
+    val challenge by vm.underBudgetDaysThisWeek.collectAsState()
+    val searchQuery by vm.searchQuery.collectAsState()
+    val filteredTransactions by vm.filteredTransactions.collectAsState()
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
@@ -131,6 +142,68 @@ fun HomeTab(vm: MainViewModel) {
             }
         }
 
+        item {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("النهارده", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    MoneyText(todaySpend, hidden, fontSize = 22, fontWeight = FontWeight.Bold)
+                    remainingBudget?.let { remaining ->
+                        Row(modifier = Modifier.fillMaxWidth()) {
+                            Text(
+                                "المتبقي من ميزانيتك الشهرية",
+                                Modifier.weight(1f), fontSize = 13.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            MoneyText(
+                                remaining, hidden, fontSize = 13,
+                                color = if (remaining >= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        val projected = projection
+        if (projected != null && !projectionDismissed) {
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Row(Modifier.padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            "على المنوال ده، الشهر هيقفل على حوالي ${if (hidden) MASKED_MONEY else formatMoney(projected)}",
+                            Modifier.weight(1f), fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        TextButton(onClick = { vm.dismissProjection() }) {
+                            Text("إخفاء", fontSize = 12.sp)
+                        }
+                    }
+                }
+            }
+        }
+
+        val challengeState = challenge
+        if (challengeState != null && challengeState.second >= 2) {
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        "التحدي: ${challengeState.first} من ${challengeState.second} أيام الأسبوع ده جوه ميزانيتك اليومية",
+                        Modifier.padding(horizontal = 14.dp, vertical = 8.dp), fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+
         val overBudget = vm.overBudgetCategories()
         if (overBudget.isNotEmpty()) {
             item {
@@ -163,13 +236,39 @@ fun HomeTab(vm: MainViewModel) {
                 QuickAction("مصروف", Modifier.weight(1f)) { vm.openOverlay(Overlay.AddTransaction("EXPENSE")) }
                 QuickAction("تحويل", Modifier.weight(1f)) { vm.openOverlay(Overlay.AddTransaction("TRANSFER")) }
             }
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                QuickAction("التقارير", Modifier.weight(1f)) { vm.openOverlay(Overlay.Charts) }
+                QuickAction("التقويم", Modifier.weight(1f)) { vm.openOverlay(Overlay.Calendar) }
+            }
         }
 
         item {
             Spacer(Modifier.height(4.dp))
             Text("أحدث العمليات", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+            Spacer(Modifier.height(4.dp))
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { vm.setSearchQuery(it) },
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text("ابحث بالمبلغ أو الفئة أو الملاحظة", fontSize = 13.sp) },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                singleLine = true,
+                shape = RoundedCornerShape(14.dp),
+            )
         }
-        if (transactions.isEmpty()) {
+        if (filteredTransactions.isEmpty() && searchQuery.isNotBlank()) {
+            item {
+                Text(
+                    "لا توجد نتائج مطابقة للبحث.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp,
+                )
+            }
+        } else if (searchQuery.isNotBlank()) {
+            items(filteredTransactions.take(30), key = { it.id }) { tx ->
+                TransactionRow(vm, tx, accounts, hidden)
+            }
+        } else if (transactions.isEmpty()) {
             item {
                 Text(
                     "لسه مفيش عمليات. ابدأ بإضافة حساب من تبويب الحسابات.",
@@ -269,6 +368,7 @@ fun TransactionRow(vm: MainViewModel, tx: TransactionEntity, accounts: List<Acco
                         fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+                tx.receiptPath?.let { ReceiptView(it) }
             }
             Column(horizontalAlignment = Alignment.End) {
                 Text(
