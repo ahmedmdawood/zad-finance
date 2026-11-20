@@ -21,7 +21,9 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Switch
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -57,6 +59,50 @@ fun SettingsTab(vm: MainViewModel) {
     val voiceEnabled by vm.voiceEnabled.collectAsState()
     val budgets by vm.budgets.collectAsState()
     val transactions by vm.transactions.collectAsState()
+    val appLockEnabled by vm.appLockEnabled.collectAsState()
+    val quickAddEnabled by vm.quickAddEnabled.collectAsState()
+    val weeklyDigestEnabled by vm.weeklyDigestEnabled.collectAsState()
+    val dailyReminderEnabled by vm.dailyReminderEnabled.collectAsState()
+    val dailyReminderMinutes by vm.dailyReminderMinutes.collectAsState()
+    val smsParsingEnabled by vm.smsParsingEnabled.collectAsState()
+    val accountsList by vm.accounts.collectAsState()
+    val customCategories by vm.customCategories.collectAsState()
+    val trashItems by vm.trash.collectAsState()
+
+    var newCategoryName by remember { mutableStateOf("") }
+    var newCategoryEmoji by remember { mutableStateOf("📦") }
+    var csvMonthOffset by remember { mutableStateOf(0) }
+
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { }
+    val smsPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) vm.setSmsParsing(true, vm.smsDefaultAccountId())
+    }
+
+    val csvLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("text/csv")
+    ) { uri: Uri? ->
+        if (uri != null) {
+            scope.launch {
+                backupMessage = try {
+                    val ym = java.time.YearMonth.now().minusMonths(csvMonthOffset.toLong())
+                    exportMonthCsv(context, uri, transactions, accountsList, ym.year, ym.monthValue)
+                    "اتعمل ملف الإكسل بنجاح"
+                } catch (e: Exception) {
+                    "فشل تصدير الملف"
+                }
+            }
+        }
+    }
+
+    fun askNotificationPermission() {
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
     var budgetCategory by remember { mutableStateOf(EXPENSE_CATEGORIES.first()) }
     var budgetExpr by remember { mutableStateOf("") }
 
@@ -157,6 +203,13 @@ fun SettingsTab(vm: MainViewModel) {
             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("الثيم", fontWeight = FontWeight.SemiBold)
                 ThemePicker(selected = themeId, onSelect = { vm.setTheme(it) })
+                val darkOverride by vm.darkOverride.collectAsState()
+                val theme = themeById(themeId)
+                val isDark = if (darkOverride == -1) theme.defaultDark else darkOverride == 1
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("الوضع الداكن", modifier = Modifier.weight(1f), fontSize = 14.sp)
+                    Switch(checked = isDark, onCheckedChange = { vm.setDarkOverride(if (it) 1 else 0) })
+                }
             }
         }
 
@@ -206,7 +259,7 @@ fun SettingsTab(vm: MainViewModel) {
                         }
                     }
                 }
-                CategoryChips(selected = budgetCategory, onSelect = { budgetCategory = it })
+                CategoryChips(selected = budgetCategory, categories = vm.allCategories(), onSelect = { budgetCategory = it })
                 CalculatorAmountInput(value = budgetExpr, onValueChange = { budgetExpr = it }, label = "حد الشهر للفئة المختارة")
                 Button(
                     onClick = {
@@ -252,6 +305,163 @@ fun SettingsTab(vm: MainViewModel) {
                     ) { Text("استعادة", fontSize = 13.sp) }
                 }
                 backupMessage?.let { Text(it, fontSize = 12.sp, color = MaterialTheme.colorScheme.primary) }
+            }
+        }
+
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("الأمان", fontWeight = FontWeight.SemiBold)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("قفل التطبيق بالبصمة أو قفل الجهاز", modifier = Modifier.weight(1f), fontSize = 14.sp)
+                    Switch(checked = appLockEnabled, onCheckedChange = { vm.setAppLockEnabled(it) })
+                }
+            }
+        }
+
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("الإشعارات", fontWeight = FontWeight.SemiBold)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("إضافة مصروف سريعة من الإشعارات", modifier = Modifier.weight(1f), fontSize = 14.sp)
+                    Switch(checked = quickAddEnabled, onCheckedChange = {
+                        if (it) askNotificationPermission()
+                        vm.setQuickAddEnabled(it)
+                    })
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("ملخص أسبوعي (الجمعة ٦ مساءً)", modifier = Modifier.weight(1f), fontSize = 14.sp)
+                    Switch(checked = weeklyDigestEnabled, onCheckedChange = {
+                        if (it) askNotificationPermission()
+                        vm.setWeeklyDigestEnabled(it)
+                    })
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("تذكير يومي بتسجيل المصاريف", modifier = Modifier.weight(1f), fontSize = 14.sp)
+                    Switch(checked = dailyReminderEnabled, onCheckedChange = {
+                        if (it) askNotificationPermission()
+                        vm.setDailyReminder(it, dailyReminderMinutes)
+                    })
+                }
+                if (dailyReminderEnabled) {
+                    Text("وقت التذكير:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf(12 * 60 to "١٢ الظهر", 17 * 60 to "٥ مساءً", 20 * 60 to "٨ مساءً", 22 * 60 to "١٠ مساءً").forEach { (minutes, label) ->
+                            FilterChip(
+                                selected = dailyReminderMinutes == minutes,
+                                onClick = { vm.setDailyReminder(true, minutes) },
+                                label = { Text(label, fontSize = 12.sp) },
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("رسائل البنك (SMS)", fontWeight = FontWeight.SemiBold)
+                Text(
+                    "لو فعلتها، رسائل الخصم من البنك بتتسجل كمصروف تلقائيًا. كل حاجة بتحصل على جهازك بس.",
+                    fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("تسجيل المصاريف من رسائل البنك", modifier = Modifier.weight(1f), fontSize = 14.sp)
+                    Switch(checked = smsParsingEnabled, onCheckedChange = { enabled ->
+                        if (enabled) {
+                            val accountId = accountsList.firstOrNull()?.id ?: 0L
+                            vm.setSmsParsing(true, accountId)
+                            smsPermissionLauncher.launch(android.Manifest.permission.RECEIVE_SMS)
+                        } else {
+                            vm.setSmsParsing(false, 0L)
+                        }
+                    })
+                }
+                if (smsParsingEnabled && accountsList.isNotEmpty()) {
+                    Text("تتسجل على حساب:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        accountsList.take(4).forEach { account ->
+                            FilterChip(
+                                selected = vm.smsDefaultAccountId() == account.id,
+                                onClick = { vm.setSmsParsing(true, account.id) },
+                                label = { Text(account.name, fontSize = 12.sp) },
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("فئات مخصصة", fontWeight = FontWeight.SemiBold)
+                if (customCategories.isNotEmpty()) {
+                    customCategories.forEach { category ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(category.icon + " " + category.name, modifier = Modifier.weight(1f), fontSize = 14.sp)
+                            TextButton(onClick = { vm.removeCategory(category.name) }) {
+                                Text("إزالة", fontSize = 12.sp)
+                            }
+                        }
+                    }
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        value = newCategoryEmoji,
+                        onValueChange = { newCategoryEmoji = it.take(2) },
+                        modifier = Modifier.padding(end = 8.dp),
+                        singleLine = true,
+                    )
+                    OutlinedTextField(
+                        value = newCategoryName,
+                        onValueChange = { newCategoryName = it },
+                        modifier = Modifier.weight(1f),
+                        placeholder = { Text("اسم الفئة الجديدة", fontSize = 13.sp) },
+                        singleLine = true,
+                    )
+                }
+                Button(
+                    onClick = {
+                        vm.addCategory(newCategoryName, newCategoryEmoji, "#5C6BC0")
+                        newCategoryName = ""
+                    },
+                    enabled = newCategoryName.isNotBlank(),
+                ) { Text("إضافة الفئة") }
+            }
+        }
+
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("تصدير Excel / CSV", fontWeight = FontWeight.SemiBold)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(
+                        selected = csvMonthOffset == 0,
+                        onClick = { csvMonthOffset = 0 },
+                        label = { Text("الشهر ده", fontSize = 12.sp) },
+                    )
+                    FilterChip(
+                        selected = csvMonthOffset == 1,
+                        onClick = { csvMonthOffset = 1 },
+                        label = { Text("الشهر اللي فات", fontSize = 12.sp) },
+                    )
+                }
+                Button(onClick = {
+                    val ym = java.time.YearMonth.now().minusMonths(csvMonthOffset.toLong())
+                    csvLauncher.launch("zad-${ym.year}-" + "%02d".format(ym.monthValue) + ".csv")
+                }) { Text("تصدير الشهر المختار") }
+            }
+        }
+
+        Card(
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            modifier = Modifier.fillMaxWidth().clickable { vm.openOverlay(Overlay.Trash) },
+        ) {
+            Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("سلة المحذوفات", fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                Text(
+                    if (trashItems.isEmpty()) "" else trashItems.size.toString(),
+                    fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text("‹", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
 
