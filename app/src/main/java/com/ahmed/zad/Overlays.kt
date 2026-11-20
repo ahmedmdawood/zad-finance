@@ -80,6 +80,7 @@ fun AddTransactionScreen(vm: MainViewModel, type: String) {
     var toAccount by remember { mutableStateOf<Long?>(null) }
     var planId by remember { mutableStateOf<Long?>(null) }
     var category by remember { mutableStateOf("أخرى") }
+    var receiptPath by remember { mutableStateOf<String?>(null) }
     var note by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
     val voiceEnabled by vm.voiceEnabled.collectAsState()
@@ -105,7 +106,7 @@ fun AddTransactionScreen(vm: MainViewModel, type: String) {
         }
         if (type == "EXPENSE") {
             Text("الفئة", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-            CategoryChips(selected = category, onSelect = { category = it })
+            CategoryChips(selected = category, categories = vm.allCategories(), onSelect = { category = it })
             budgets.firstOrNull { it.category == category }?.let { budget ->
                 val spent = vm.categorySpentThisMonth(category)
                 val candidate = try { evaluateToPiasters(expression).first } catch (e: EvalException) { 0L }
@@ -129,6 +130,9 @@ fun AddTransactionScreen(vm: MainViewModel, type: String) {
                 }
             }
         }
+        if (type == "EXPENSE") {
+            ReceiptPicker(receiptPath = receiptPath, onPicked = { receiptPath = it })
+        }
         OutlinedTextField(
             value = note, onValueChange = { note = it },
             label = { Text("ملاحظة (اختياري)") }, singleLine = true,
@@ -145,7 +149,9 @@ fun AddTransactionScreen(vm: MainViewModel, type: String) {
                     else -> null
                 }
                 if (error == null) {
-                    vm.addTransaction(type, expression, fromAccount!!, toAccount, note.trim(), planId, category)
+                    vm.addTransaction(
+                        type, expression, fromAccount!!, toAccount, note.trim(), planId, category, receiptPath
+                    )
                 }
             },
             modifier = Modifier.fillMaxWidth(),
