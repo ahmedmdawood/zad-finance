@@ -30,12 +30,12 @@ jobs:
         run: gradle assembleRelease --no-daemon --stacktrace
 
       - name: Rename APK
-        run: cp app/build/outputs/apk/release/app-release.apk zad-v1.2.apk
+        run: cp app/build/outputs/apk/release/app-release.apk zad-v1.3.apk
 
       - name: Publish to Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.2
-          name: ZAD v1.2
-          body: ZAD v1.2 - hardened install compatibility (release build, v1+v2+v3 signatures, no SMS permission). Created with care by ahmed dawood
-          files: zad-v1.2.apk
+          tag_name: v1.3
+          name: ZAD v1.3
+          body: ZAD v1.3 - UX polish round: navigation, back stack, insets, Arabic wrapping, crash fixes, richer design. Created with care by ahmed dawood
+          files: zad-v1.3.apk
