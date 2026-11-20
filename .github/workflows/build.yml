@@ -37,5 +37,5 @@ jobs:
         with:
           tag_name: v1.3
           name: ZAD v1.3
-          body: ZAD v1.3 - UX polish round: navigation, back stack, insets, Arabic wrapping, crash fixes, richer design. Created with care by ahmed dawood
+          body: "ZAD v1.3 - UX polish round: navigation, back stack, insets, Arabic wrapping, crash fixes, richer design. Created with care by ahmed dawood"
           files: zad-v1.3.apk
