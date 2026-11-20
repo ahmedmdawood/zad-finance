@@ -71,7 +71,7 @@ fun OnboardingScreen(vm: MainViewModel) {
         Spacer(Modifier.height(8.dp))
         ThemePicker(selected = theme, onSelect = { theme = it })
         Spacer(Modifier.height(24.dp))
-        Button(
+        PressScaleButton(
             onClick = { if (name.isNotBlank()) vm.completeOnboarding(name.trim(), theme) },
             enabled = name.isNotBlank(),
             modifier = Modifier.fillMaxWidth(),
@@ -328,7 +328,7 @@ fun QuickAction(label: String, modifier: Modifier = Modifier, onClick: () -> Uni
         "التقويم" -> "📅"
         else -> "✨"
     }
-    Button(onClick = onClick, modifier = modifier) {
+    PressScaleButton(onClick = onClick, modifier = modifier) {
         Text("$emoji $label", fontSize = 14.sp)
     }
 }
@@ -350,7 +350,7 @@ fun SalaryCard(vm: MainViewModel, salaryExpr: String, hidden: Boolean) {
                 MoneyText(preview, hidden, fontSize = 18, fontWeight = FontWeight.Bold)
             }
             AccountChips(accounts.filter { it.type != "CREDIT" }, selectedAccount) { selectedAccount = it }
-            Button(
+            PressScaleButton(
                 onClick = { selectedAccount?.let { vm.confirmSalary(it, salaryExpr) } },
                 enabled = selectedAccount != null && preview != null,
                 modifier = Modifier.fillMaxWidth(),
@@ -447,10 +447,10 @@ fun TransactionRow(vm: MainViewModel, tx: TransactionEntity, accounts: List<Acco
             title = { Text("حذف العملية؟") },
             text = { Text("هيتم حذف العملية وتحديث الأرصدة المرتبطة بيها.") },
             confirmButton = {
-                Button(onClick = { vm.deleteTransaction(tx.id); confirmDelete = false }) { Text("حذف") }
+                PressScaleButton(onClick = { vm.deleteTransaction(tx.id); confirmDelete = false }) { Text("حذف") }
             },
             dismissButton = {
-                Button(onClick = { confirmDelete = false }) { Text("إلغاء") }
+                PressScaleButton(onClick = { confirmDelete = false }) { Text("إلغاء") }
             },
         )
     }
