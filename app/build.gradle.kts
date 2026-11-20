@@ -10,7 +10,7 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.ahmed.zad"
+        applicationId = "dev.ahmeddawood.zadfinance"
         minSdk = 26
         targetSdk = 35
         versionCode = 1
