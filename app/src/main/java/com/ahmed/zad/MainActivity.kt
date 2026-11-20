@@ -4,7 +4,11 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
@@ -232,13 +236,19 @@ fun MainScaffold(vm: MainViewModel) {
             Overlay.Charts -> ChartsScreen(vm)
             Overlay.Calendar -> CalendarScreen(vm)
             Overlay.Trash -> TrashScreen(vm)
-            Overlay.None -> when (tab) {
-                ZadTab.HOME -> HomeTab(vm)
-                ZadTab.ACCOUNTS -> AccountsTab(vm)
-                ZadTab.DEBTS -> DebtsTab(vm)
-                ZadTab.OBLIGATIONS -> ObligationsTab(vm)
-                ZadTab.PLANS -> PlansTab(vm)
-                ZadTab.SETTINGS -> SettingsTab(vm)
+            Overlay.None -> AnimatedContent(
+                targetState = tab,
+                transitionSpec = { fadeIn(tween(240)) togetherWith fadeOut(tween(180)) },
+                label = "tabContent",
+            ) { t ->
+                when (t) {
+                    ZadTab.HOME -> HomeTab(vm)
+                    ZadTab.ACCOUNTS -> AccountsTab(vm)
+                    ZadTab.DEBTS -> DebtsTab(vm)
+                    ZadTab.OBLIGATIONS -> ObligationsTab(vm)
+                    ZadTab.PLANS -> PlansTab(vm)
+                    ZadTab.SETTINGS -> SettingsTab(vm)
+                }
             }
         }
         }
