@@ -50,7 +50,7 @@ fun AccountsTab(vm: MainViewModel) {
             Spacer(Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                 Text("الحسابات", fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                Button(onClick = { vm.openOverlay(Overlay.AddAccount) }) { Text("إضافة حساب") }
+                PressScaleButton(onClick = { vm.openOverlay(Overlay.AddAccount) }) { Text("إضافة حساب") }
             }
         }
         if (accounts.isEmpty()) {
@@ -133,7 +133,7 @@ fun DebtsTab(vm: MainViewModel) {
             Spacer(Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                 Text("الديون", fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                Button(onClick = { vm.openOverlay(Overlay.AddDebt) }) { Text("إضافة دين") }
+                PressScaleButton(onClick = { vm.openOverlay(Overlay.AddDebt) }) { Text("إضافة دين") }
             }
             Spacer(Modifier.height(4.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
