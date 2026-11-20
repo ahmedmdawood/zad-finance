@@ -61,9 +61,13 @@ fun ReceiptPicker(receiptPath: String?, onPicked: (String) -> Unit) {
     }
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         OutlinedButton(onClick = {
-            launcher.launch(
-                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-            )
+            try {
+                launcher.launch(
+                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                )
+            } catch (e: Exception) {
+                error = true
+            }
         }) {
             Icon(Icons.Default.Receipt, contentDescription = null)
             Text(if (receiptPath == null) " صورة فاتورة (اختياري)" else " الفاتورة اتحفظت", fontSize = 13.sp)
