@@ -128,7 +128,7 @@ fun ChartsScreen(vm: MainViewModel) {
                             topCategories.take(6).forEach { (category, value) ->
                                 Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                                     Row {
-                                        Text(category, Modifier.weight(1f), fontSize = 13.sp)
+                                        Text(categoryEmoji(category) + " " + category, Modifier.weight(1f), fontSize = 13.sp)
                                         Text(
                                             if (hidden) MASKED_MONEY else formatMoney(value),
                                             fontSize = 13.sp,
