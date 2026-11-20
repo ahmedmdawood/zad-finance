@@ -109,7 +109,17 @@ object VoiceParser {
 /** Mic button that listens offline-first and writes the parsed expression into the amount field. */
 @Composable
 fun VoiceAmountButton(enabled: Boolean, onResult: (String) -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     var status by remember { mutableStateOf<String?>(null) }
+    // Some devices ship without a speech-recognition service (no Google app /
+    // Speech Services). Detect it up front instead of failing on tap.
+    val recognizerAvailable = remember {
+        context.packageManager
+            .queryIntentActivities(
+                Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH), 0,
+            )
+            .isNotEmpty()
+    }
     val launcher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -127,7 +137,35 @@ fun VoiceAmountButton(enabled: Boolean, onResult: (String) -> Unit) {
             status = "التسجيل اتلغى."
         }
     }
-    if (enabled) {
+    if (enabled && !recognizerAvailable) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            OutlinedButton(onClick = {
+                try {
+                    val market = Intent(Intent.ACTION_VIEW,
+                        android.net.Uri.parse("market://details?id=com.google.android.googlequicksearchbox"))
+                    context.startActivity(market)
+                } catch (e: Exception) {
+                    try {
+                        context.startActivity(Intent(Intent.ACTION_VIEW,
+                            android.net.Uri.parse("https://play.google.com/store/apps/details?id=com.google.android.googlequicksearchbox")))
+                    } catch (e2: Exception) { }
+                }
+            }) {
+                Icon(Icons.Default.Mic, contentDescription = null)
+                Spacer(Modifier.width(6.dp))
+                Text("الإدخال الصوتي محتاج تطبيق جوجل — اضغط هنا لتثبيته", fontSize = 13.sp)
+            }
+        }
+        Text(
+            "الجهاز ده مفيهوش خدمة التعرف الصوتي. ثبّت تطبيق جوجل (مجاني) والميزة هتشتغل لوحدها.",
+            fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+    if (enabled && recognizerAvailable) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center,
