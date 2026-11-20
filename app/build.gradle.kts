@@ -9,16 +9,24 @@ android {
     namespace = "com.ahmed.zad"
     compileSdk = 35
 
+    signingConfigs {
+        named("debug") {
+            enableV1Signing = true
+            enableV3Signing = true
+        }
+    }
+
     defaultConfig {
         applicationId = "dev.ahmeddawood.zadfinance"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.2"
     }
 
     buildTypes {
         release {
+            signingConfig = signingConfigs.getByName("debug")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
