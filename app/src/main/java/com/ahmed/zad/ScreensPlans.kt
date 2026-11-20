@@ -57,7 +57,7 @@ fun ObligationsTab(vm: MainViewModel) {
             Spacer(Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                 Text("الالتزامات الدورية", fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                Button(onClick = { vm.openOverlay(Overlay.AddObligation) }) { Text("إضافة") }
+                PressScaleButton(onClick = { vm.openOverlay(Overlay.AddObligation) }) { Text("إضافة") }
             }
         }
         if (obligations.isEmpty()) {
@@ -93,7 +93,7 @@ fun ObligationsTab(vm: MainViewModel) {
                             OutlinedButton(onClick = { vm.skipOccurrence(occurrence.id) }) {
                                 Text("تخطي", fontSize = 12.sp)
                             }
-                            Button(onClick = { vm.openOverlay(Overlay.PayOccurrence(occurrence.id)) }) {
+                            PressScaleButton(onClick = { vm.openOverlay(Overlay.PayOccurrence(occurrence.id)) }) {
                                 Text("دفع", fontSize = 12.sp)
                             }
                         }
@@ -120,7 +120,7 @@ fun PlansTab(vm: MainViewModel) {
             Spacer(Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                 Text("الخطط المالية", fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                Button(onClick = { vm.openOverlay(Overlay.AddPlan) }) { Text("خطة جديدة") }
+                PressScaleButton(onClick = { vm.openOverlay(Overlay.AddPlan) }) { Text("خطة جديدة") }
             }
             Text(
                 "تخصيص مبلغ لخطة مش مصروف؛ ده حجز جزء من سيولتك لهدف معين.",
