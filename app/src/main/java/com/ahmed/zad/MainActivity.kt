@@ -162,6 +162,12 @@ fun MainScaffold(vm: MainViewModel) {
     val tab by vm.tab.collectAsState()
     val overlay by vm.overlay.collectAsState()
 
+    androidx.activity.compose.BackHandler(
+        enabled = overlay != Overlay.None || tab != ZadTab.HOME,
+    ) {
+        if (overlay != Overlay.None) vm.closeOverlay() else vm.setTab(ZadTab.HOME)
+    }
+
     if (MainActivity.quickAddRequested.value) {
         MainActivity.quickAddRequested.value = false
         vm.openOverlay(Overlay.AddTransaction("EXPENSE"))
@@ -172,43 +178,44 @@ fun MainScaffold(vm: MainViewModel) {
             NavigationBar {
                 NavigationBarItem(
                     selected = tab == ZadTab.HOME,
-                    onClick = { vm.setTab(ZadTab.HOME) },
+                    onClick = { vm.closeOverlay(); vm.setTab(ZadTab.HOME) },
                     icon = { Icon(Icons.Default.Home, contentDescription = null) },
                     label = { Text("الرئيسية", fontSize = 11.sp, fontWeight = FontWeight.Medium) },
                 )
                 NavigationBarItem(
                     selected = tab == ZadTab.ACCOUNTS,
-                    onClick = { vm.setTab(ZadTab.ACCOUNTS) },
+                    onClick = { vm.closeOverlay(); vm.setTab(ZadTab.ACCOUNTS) },
                     icon = { Icon(Icons.Default.AccountBalanceWallet, contentDescription = null) },
                     label = { Text("الحسابات", fontSize = 11.sp) },
                 )
                 NavigationBarItem(
                     selected = tab == ZadTab.DEBTS,
-                    onClick = { vm.setTab(ZadTab.DEBTS) },
+                    onClick = { vm.closeOverlay(); vm.setTab(ZadTab.DEBTS) },
                     icon = { Icon(Icons.Default.Handshake, contentDescription = null) },
                     label = { Text("الديون", fontSize = 11.sp) },
                 )
                 NavigationBarItem(
                     selected = tab == ZadTab.OBLIGATIONS,
-                    onClick = { vm.setTab(ZadTab.OBLIGATIONS) },
+                    onClick = { vm.closeOverlay(); vm.setTab(ZadTab.OBLIGATIONS) },
                     icon = { Icon(Icons.Default.EventRepeat, contentDescription = null) },
                     label = { Text("الالتزامات", fontSize = 11.sp) },
                 )
                 NavigationBarItem(
                     selected = tab == ZadTab.PLANS,
-                    onClick = { vm.setTab(ZadTab.PLANS) },
+                    onClick = { vm.closeOverlay(); vm.setTab(ZadTab.PLANS) },
                     icon = { Icon(Icons.Default.Savings, contentDescription = null) },
                     label = { Text("الخطط", fontSize = 11.sp) },
                 )
                 NavigationBarItem(
                     selected = tab == ZadTab.SETTINGS,
-                    onClick = { vm.setTab(ZadTab.SETTINGS) },
+                    onClick = { vm.closeOverlay(); vm.setTab(ZadTab.SETTINGS) },
                     icon = { Icon(Icons.Default.Settings, contentDescription = null) },
                     label = { Text("الإعدادات", fontSize = 11.sp) },
                 )
             }
         }
     ) { padding ->
+        Box(Modifier.padding(padding)) {
         when (val current = overlay) {
             is Overlay.AddTransaction -> AddTransactionScreen(vm, current.type)
             is Overlay.CardPurchase -> CardPurchaseScreen(vm, current.accountId)
@@ -233,6 +240,7 @@ fun MainScaffold(vm: MainViewModel) {
                 ZadTab.PLANS -> PlansTab(vm)
                 ZadTab.SETTINGS -> SettingsTab(vm)
             }
+        }
         }
     }
 }
