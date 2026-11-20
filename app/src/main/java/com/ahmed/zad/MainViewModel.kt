@@ -4,6 +4,8 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -29,6 +31,9 @@ sealed class Overlay {
     object AddPlan : Overlay()
     data class PlanDetail(val planId: Long) : Overlay()
     object About : Overlay()
+    object Charts : Overlay()
+    object Calendar : Overlay()
+    object Trash : Overlay()
 }
 
 class MainViewModel(app: Application) : AndroidViewModel(app) {
@@ -56,6 +61,150 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         dao.allocationsFlow().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val budgets: StateFlow<List<BudgetEntity>> =
         dao.budgetsFlow().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val customCategories: StateFlow<List<CategoryEntity>> =
+        dao.categoriesFlow().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery
+
+    fun setSearchQuery(query: String) {
+        _searchQuery.value = query
+    }
+
+    val filteredTransactions: StateFlow<List<TransactionEntity>> =
+        combine(transactions, _searchQuery) { list, query ->
+            if (query.isBlank()) list
+            else list.filter { t ->
+                t.note.contains(query, ignoreCase = true) ||
+                    t.category.contains(query, ignoreCase = true) ||
+                    formatMoney(t.amountPiasters).contains(query.trim())
+            }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /** Expenses recorded since the start of today. */
+    val todaySpendPiasters: StateFlow<Long> =
+        transactions.map { list ->
+            val start = todayStartMillis()
+            list.filter { it.type == "EXPENSE" && it.createdAt >= start }.sumOf { it.amountPiasters }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0L)
+
+    /** Expenses recorded since the start of the current month. */
+    val monthSpendPiasters: StateFlow<Long> =
+        transactions.map { list ->
+            val start = monthBounds(0).first
+            list.filter { it.type == "EXPENSE" && it.createdAt >= start }.sumOf { it.amountPiasters }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0L)
+
+    /** Sum of all set budgets minus this month's spend; null when no budgets are set. */
+    val remainingMonthBudgetPiasters: StateFlow<Long?> =
+        combine(budgets, monthSpendPiasters) { budgetsList, spent ->
+            val total = budgetsList.sumOf { it.limitPiasters }
+            if (total <= 0) null else total - spent
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    /** Subtle projection: month spend scaled to the whole month; shown after the 5th. */
+    val projectedMonthSpendPiasters: StateFlow<Long?> =
+        monthSpendPiasters.map { spent ->
+            val day = dayOfMonth()
+            if (spent <= 0 || day < 5) null
+            else spent * daysInCurrentMonth() / day
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    /** Days this week with expenses at or under the implied daily budget; null when no budgets. */
+    val underBudgetDaysThisWeek: StateFlow<Pair<Int, Int>?> =
+        combine(budgets, transactions) { budgetsList, tx ->
+            val total = budgetsList.sumOf { it.limitPiasters }
+            if (total <= 0) return@combine null
+            val dailyBudget = total / daysInCurrentMonth()
+            if (dailyBudget <= 0) return@combine null
+            val cal = java.util.Calendar.getInstance()
+            cal.set(java.util.Calendar.HOUR_OF_DAY, 0)
+            cal.set(java.util.Calendar.MINUTE, 0)
+            cal.set(java.util.Calendar.SECOND, 0)
+            cal.set(java.util.Calendar.MILLISECOND, 0)
+            val todayDow = cal.get(java.util.Calendar.DAY_OF_WEEK)
+            val daysBack = (todayDow - cal.firstDayOfWeek + 7) % 7
+            var under = 0
+            var elapsed = 0
+            for (i in 0..daysBack) {
+                cal.set(java.util.Calendar.HOUR_OF_DAY, 0)
+                cal.add(java.util.Calendar.DAY_OF_MONTH, 0) // reset after reuse
+                val c2 = java.util.Calendar.getInstance()
+                c2.set(java.util.Calendar.HOUR_OF_DAY, 0)
+                c2.set(java.util.Calendar.MINUTE, 0)
+                c2.set(java.util.Calendar.SECOND, 0)
+                c2.set(java.util.Calendar.MILLISECOND, 0)
+                c2.add(java.util.Calendar.DAY_OF_MONTH, -i)
+                val dayStart = c2.timeInMillis
+                c2.add(java.util.Calendar.DAY_OF_MONTH, 1)
+                val dayEnd = c2.timeInMillis
+                val spend = tx.filter { it.type == "EXPENSE" && it.createdAt in dayStart until dayEnd }
+                    .sumOf { it.amountPiasters }
+                if (spend <= dailyBudget) under++
+                elapsed++
+            }
+            under to elapsed
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    /** Top expense categories this month, for charts. */
+    val topCategoriesThisMonth: StateFlow<List<Pair<String, Long>>> =
+        transactions.map { list ->
+            val start = monthBounds(0).first
+            list.filter { it.type == "EXPENSE" && it.createdAt >= start }
+                .groupBy { it.category }
+                .mapValues { (_, ts) -> ts.sumOf { it.amountPiasters } }
+                .entries.sortedByDescending { it.value }
+                .map { it.key to it.value }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /** Expense totals per month for the last 6 months, oldest first. */
+    val monthlyExpenseSeries: StateFlow<List<Pair<String, Long>>> =
+        transactions.map { list ->
+            (5 downTo 0).map { offset ->
+                val (start, end) = monthBounds(-offset)
+                val label = java.time.YearMonth.now().minusMonths(offset.toLong()).month.let { m ->
+                    when (m) {
+                        java.time.Month.JANUARY -> "يناير"; java.time.Month.FEBRUARY -> "فبراير"
+                        java.time.Month.MARCH -> "مارس"; java.time.Month.APRIL -> "أبريل"
+                        java.time.Month.MAY -> "مايو"; java.time.Month.JUNE -> "يونيو"
+                        java.time.Month.JULY -> "يوليو"; java.time.Month.AUGUST -> "أغسطس"
+                        java.time.Month.SEPTEMBER -> "سبتمبر"; java.time.Month.OCTOBER -> "أكتوبر"
+                        java.time.Month.NOVEMBER -> "نوفمبر"; else -> "ديسمبر"
+                    }
+                }
+                val total = list.filter { it.type == "EXPENSE" && it.createdAt >= start && it.createdAt < end }
+                    .sumOf { it.amountPiasters }
+                label to total
+            }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val trash: StateFlow<List<TransactionEntity>> =
+        dao.trashFlow().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /** Preset categories plus the user's own. */
+    fun allCategories(): List<String> =
+        (EXPENSE_CATEGORIES + customCategories.value.map { it.name }).distinct()
+
+    fun addCategory(name: String, icon: String, colorHex: String) {
+        viewModelScope.launch {
+            if (name.isNotBlank() && name !in allCategories()) {
+                dao.insertCategory(CategoryEntity(name = name.trim(), icon = icon, colorHex = colorHex))
+            }
+        }
+    }
+
+    fun removeCategory(name: String) {
+        viewModelScope.launch { dao.deleteCategory(name) }
+    }
+
+    fun restoreTransaction(id: Long) {
+        viewModelScope.launch { dao.restoreTransaction(id) }
+    }
+
+    fun purgeOldTrash() {
+        viewModelScope.launch {
+            dao.purgeOldTrash(System.currentTimeMillis() - 30L * 86_400_000L)
+        }
+    }
 
     private val _userName = MutableStateFlow(prefs.userName)
     val userName: StateFlow<String> = _userName
@@ -65,6 +214,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _themeId = MutableStateFlow(prefs.themeId)
     val themeId: StateFlow<String> = _themeId
+
+    private val _darkOverride = MutableStateFlow(prefs.darkOverride)
+    val darkOverride: StateFlow<Int> = _darkOverride
+
+    fun setDarkOverride(value: Int) {
+        prefs.darkOverride = value
+        _darkOverride.value = value
+    }
 
     private val _privacyHidden = MutableStateFlow(prefs.privacyHidden)
     val privacyHidden: StateFlow<Boolean> = _privacyHidden
@@ -81,6 +238,75 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun setVoiceEnabled(enabled: Boolean) {
         prefs.voiceEntryEnabled = enabled
         _voiceEnabled.value = enabled
+    }
+
+    private val _appLockEnabled = MutableStateFlow(prefs.appLockEnabled)
+    val appLockEnabled: StateFlow<Boolean> = _appLockEnabled
+
+    private val _appUnlocked = MutableStateFlow(!prefs.appLockEnabled)
+    val appUnlocked: StateFlow<Boolean> = _appUnlocked
+
+    fun setAppLockEnabled(enabled: Boolean) {
+        prefs.appLockEnabled = enabled
+        _appLockEnabled.value = enabled
+        if (enabled) _appUnlocked.value = true // enabling from inside counts as unlocked
+    }
+
+    fun markAppUnlocked() {
+        _appUnlocked.value = true
+    }
+
+    private val _quickAddEnabled = MutableStateFlow(prefs.quickAddEnabled)
+    val quickAddEnabled: StateFlow<Boolean> = _quickAddEnabled
+
+    fun setQuickAddEnabled(enabled: Boolean) {
+        prefs.quickAddEnabled = enabled
+        _quickAddEnabled.value = enabled
+        ZadNotifications.showQuickAdd(getApplication(), enabled)
+    }
+
+    private val _weeklyDigestEnabled = MutableStateFlow(prefs.weeklyDigestEnabled)
+    val weeklyDigestEnabled: StateFlow<Boolean> = _weeklyDigestEnabled
+
+    fun setWeeklyDigestEnabled(enabled: Boolean) {
+        prefs.weeklyDigestEnabled = enabled
+        _weeklyDigestEnabled.value = enabled
+        if (enabled) ZadNotifications.scheduleWeeklyDigest(getApplication())
+        else ZadNotifications.cancelWeeklyDigest(getApplication())
+    }
+
+    private val _dailyReminderEnabled = MutableStateFlow(prefs.dailyReminderEnabled)
+    val dailyReminderEnabled: StateFlow<Boolean> = _dailyReminderEnabled
+
+    private val _dailyReminderMinutes = MutableStateFlow(prefs.dailyReminderMinutes)
+    val dailyReminderMinutes: StateFlow<Int> = _dailyReminderMinutes
+
+    fun setDailyReminder(enabled: Boolean, minutes: Int) {
+        prefs.dailyReminderEnabled = enabled
+        prefs.dailyReminderMinutes = minutes
+        _dailyReminderEnabled.value = enabled
+        _dailyReminderMinutes.value = minutes
+        if (enabled) ZadNotifications.scheduleDailyReminder(getApplication(), minutes / 60, minutes % 60)
+        else ZadNotifications.cancelDailyReminder(getApplication())
+    }
+
+    private val _smsParsingEnabled = MutableStateFlow(prefs.smsParsingEnabled)
+    val smsParsingEnabled: StateFlow<Boolean> = _smsParsingEnabled
+
+    fun setSmsParsing(enabled: Boolean, accountId: Long) {
+        prefs.smsParsingEnabled = enabled
+        prefs.smsDefaultAccountId = accountId
+        _smsParsingEnabled.value = enabled
+    }
+
+    fun smsDefaultAccountId(): Long = prefs.smsDefaultAccountId
+
+    private val _projectionDismissed = MutableStateFlow(prefs.projectionDismissed)
+    val projectionDismissed: StateFlow<Boolean> = _projectionDismissed
+
+    fun dismissProjection() {
+        prefs.projectionDismissed = true
+        _projectionDismissed.value = true
     }
 
     private val _unlocked = MutableStateFlow(false)
@@ -129,6 +355,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun setTheme(theme: String) {
         prefs.themeId = theme
         _themeId.value = theme
+        _darkOverride.value = -1
+        prefs.darkOverride = -1
     }
 
     fun setExpectedSalary(expression: String) {
@@ -246,6 +474,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         note: String,
         planId: Long? = null,
         category: String = "أخرى",
+        receiptPath: String? = null,
     ) {
         viewModelScope.launch {
             val (piasters, _) = evaluateToPiasters(expression)
@@ -258,6 +487,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     toAccountId = toAccountId,
                     planId = if (type == "EXPENSE") planId else null,
                     category = if (type == "EXPENSE") category else "أخرى",
+                    receiptPath = if (type == "EXPENSE") receiptPath else null,
                     note = note,
                 )
             )
@@ -296,7 +526,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             if (spent >= budget.limitPiasters && budget.limitPiasters > 0) budget.category to spent else null
         }
 
-    /** Deleting a transaction reverts linked state: salary confirmations and paid occurrences. */
+    /**
+     * Soft delete: the transaction moves to the 30-day trash and can be restored.
+     * Linked state (salary confirmations, paid occurrences) reverts immediately.
+     */
     fun deleteTransaction(id: Long) {
         viewModelScope.launch {
             dao.deleteSalaryConfirmationByTransaction(id)
@@ -305,6 +538,16 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 dao.updateOccurrence(
                     occurrence.copy(status = "PENDING", paidTransactionId = null, paidAmountPiasters = null)
                 )
+            }
+            dao.softDeleteTransaction(id, System.currentTimeMillis())
+        }
+    }
+
+    /** Hard delete from the trash, also removing any stored receipt photo. */
+    fun deleteTransactionForever(id: Long) {
+        viewModelScope.launch {
+            dao.transactionById(id)?.receiptPath?.let { path ->
+                try { java.io.File(path).delete() } catch (e: Exception) { }
             }
             dao.deleteTransaction(id)
         }
