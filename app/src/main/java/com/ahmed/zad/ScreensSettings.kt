@@ -3,6 +3,12 @@ package com.ahmed.zad
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -494,6 +500,8 @@ fun SettingsTab(vm: MainViewModel) {
 fun AboutScreen(vm: MainViewModel) {
     val uriHandler = LocalUriHandler.current
     val special by vm.isSpecial.collectAsState()
+    var eggTaps by remember { mutableStateOf(0) }
+    var showEgg by remember { mutableStateOf(false) }
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -513,7 +521,14 @@ fun AboutScreen(vm: MainViewModel) {
                         )
                     )
                 )
-                .padding(horizontal = 22.dp, vertical = 26.dp),
+                .padding(horizontal = 22.dp, vertical = 26.dp)
+                .clickable {
+                    eggTaps++
+                    if (eggTaps >= 5) {
+                        showEgg = true
+                        eggTaps = 0
+                    }
+                },
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(
@@ -599,4 +614,54 @@ fun AboutScreen(vm: MainViewModel) {
         Button(onClick = { vm.closeOverlay() }, modifier = Modifier.fillMaxWidth()) { Text("رجوع") }
         Spacer(Modifier.height(24.dp))
     }
+
+    if (showEgg) {
+        EasterEggDialog(onClose = { showEgg = false })
+    }
+}
+
+/** The hidden treat: a little rain of gold coins for whoever finds it. */
+@Composable
+fun EasterEggDialog(onClose: () -> Unit) {
+    val spin by rememberInfiniteTransition(label = "coins").animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(2400, easing = LinearEasing)),
+        label = "coinfall",
+    )
+    AlertDialog(
+        onDismissRequest = onClose,
+        confirmButton = { Button(onClick = onClose) { Text("❤") } },
+        title = { Text("🎉 انت لقيت السر!", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Canvas(Modifier.fillMaxWidth().height(140.dp)) {
+                    val gold = androidx.compose.ui.graphics.Color(0xFFC9A227)
+                    val deep = androidx.compose.ui.graphics.Color(0xFF8C6D1F)
+                    for (i in 0 until 18) {
+                        val frac = (i * 0.618034f) % 1f
+                        val speed = 0.55f + (i % 5) * 0.11f
+                        val y = ((spin * speed + i * 0.13f) % 1f) * size.height
+                        val x = frac * size.width
+                        val r = 7f + (i % 3) * 3f
+                        drawCircle(deep, radius = r + 2f, center = androidx.compose.ui.geometry.Offset(x, y))
+                        drawCircle(gold, radius = r, center = androidx.compose.ui.geometry.Offset(x, y))
+                    }
+                }
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    "ده سر صغير مخباه ليك. كل قرش دهب بينزل هنا هو قرش هتوفره بإذن الله.",
+                    fontSize = 14.sp, lineHeight = 21.sp,
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "Created with care by ahmed dawood",
+                    fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+    )
 }
