@@ -46,9 +46,9 @@ val EXPENSE_CATEGORIES = listOf(
 )
 
 @Composable
-fun CategoryChips(selected: String, onSelect: (String) -> Unit) {
+fun CategoryChips(selected: String, categories: List<String>, onSelect: (String) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        EXPENSE_CATEGORIES.chunked(4).forEach { rowItems ->
+        categories.chunked(4).forEach { rowItems ->
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
                 rowItems.forEach { category ->
                     androidx.compose.material3.FilterChip(
@@ -70,7 +70,9 @@ data class ZadTheme(
     val id: String,
     val nameAr: String,
     val nameEn: String,
-    val colorScheme: ColorScheme,
+    val lightScheme: ColorScheme,
+    val darkScheme: ColorScheme,
+    val defaultDark: Boolean,
     val preview: List<Color>,
 )
 
@@ -88,10 +90,33 @@ val ZadThemes = listOf(
             surfaceVariant = Color(0xFFEDEDED),
             onSurfaceVariant = Color(0xFF555555),
         ),
+        darkColorScheme(
+            primary = Color(0xFFE8E8E8),
+            onPrimary = Color(0xFF111111),
+            secondary = Color(0xFF9A9A9A),
+            background = Color(0xFF121212),
+            onBackground = Color(0xFFEDEDED),
+            surface = Color(0xFF1E1E1E),
+            onSurface = Color(0xFFEDEDED),
+            surfaceVariant = Color(0xFF2A2A2A),
+            onSurfaceVariant = Color(0xFFAAAAAA),
+        ),
+        defaultDark = false,
         listOf(Color(0xFF111111), Color(0xFFFAFAFA), Color(0xFF888888)),
     ),
     ZadTheme(
         "cinematic", "سينمائي هادئ", "Cinematic Muted",
+        lightColorScheme(
+            primary = Color(0xFF4A6A8C),
+            onPrimary = Color(0xFFFFFFFF),
+            secondary = Color(0xFF6E7F94),
+            background = Color(0xFFF2F4F7),
+            onBackground = Color(0xFF1D2632),
+            surface = Color(0xFFFFFFFF),
+            onSurface = Color(0xFF1D2632),
+            surfaceVariant = Color(0xFFE2E7EE),
+            onSurfaceVariant = Color(0xFF5A6B80),
+        ),
         darkColorScheme(
             primary = Color(0xFF8FA3BF),
             onPrimary = Color(0xFF10151B),
@@ -103,10 +128,22 @@ val ZadThemes = listOf(
             surfaceVariant = Color(0xFF2C3542),
             onSurfaceVariant = Color(0xFF9AA7B8),
         ),
+        defaultDark = true,
         listOf(Color(0xFF1A2028), Color(0xFF8FA3BF), Color(0xFF2C3542)),
     ),
     ZadTheme(
         "metallic", "معدني كلاسيكي", "Classic Metallic",
+        lightColorScheme(
+            primary = Color(0xFF4A4E57),
+            onPrimary = Color(0xFFFFFFFF),
+            secondary = Color(0xFF8A6D1F),
+            background = Color(0xFFF4F5F7),
+            onBackground = Color(0xFF1C1E22),
+            surface = Color(0xFFFFFFFF),
+            onSurface = Color(0xFF1C1E22),
+            surfaceVariant = Color(0xFFE6E8EB),
+            onSurfaceVariant = Color(0xFF5A5E66),
+        ),
         darkColorScheme(
             primary = Color(0xFFB8BCC4),
             onPrimary = Color(0xFF17181C),
@@ -118,11 +155,12 @@ val ZadThemes = listOf(
             surfaceVariant = Color(0xFF2A2C33),
             onSurfaceVariant = Color(0xFFA0A4AD),
         ),
+        defaultDark = true,
         listOf(Color(0xFF17181C), Color(0xFFB8BCC4), GoldColor),
     ),
     ZadTheme(
         "coffee_light", "قهوة فاتح", "Coffee Mix Light",
-        lightColorScheme(
+        lightColorScheme(  // light variant
             primary = Color(0xFF6F4E37),
             onPrimary = Color(0xFFFFFFFF),
             secondary = Color(0xFFA67B4F),
@@ -133,10 +171,6 @@ val ZadThemes = listOf(
             surfaceVariant = Color(0xFFEDE3D6),
             onSurfaceVariant = Color(0xFF7A6A5C),
         ),
-        listOf(Color(0xFFF6F0E8), Color(0xFF6F4E37), Color(0xFFA67B4F)),
-    ),
-    ZadTheme(
-        "coffee_dark", "قهوة غامق", "Coffee Mix Dark",
         darkColorScheme(
             primary = Color(0xFFC08A5A),
             onPrimary = Color(0xFF1C1410),
@@ -148,17 +182,54 @@ val ZadThemes = listOf(
             surfaceVariant = Color(0xFF33261D),
             onSurfaceVariant = Color(0xFFBFAC9C),
         ),
+        defaultDark = false,
+        listOf(Color(0xFFF6F0E8), Color(0xFF6F4E37), Color(0xFFA67B4F)),
+    ),
+    ZadTheme(
+        "coffee_dark", "قهوة غامق", "Coffee Mix Dark",
+        lightColorScheme(
+            primary = Color(0xFF6F4E37),
+            onPrimary = Color(0xFFFFFFFF),
+            secondary = Color(0xFFA67B4F),
+            background = Color(0xFFF6F0E8),
+            onBackground = Color(0xFF2E211A),
+            surface = Color(0xFFFFFDF9),
+            onSurface = Color(0xFF2E211A),
+            surfaceVariant = Color(0xFFEDE3D6),
+            onSurfaceVariant = Color(0xFF7A6A5C),
+        ),
+        darkColorScheme(
+            primary = Color(0xFFC08A5A),
+            onPrimary = Color(0xFF1C1410),
+            secondary = GoldColor,
+            background = Color(0xFF1C1410),
+            onBackground = Color(0xFFF2E8DD),
+            surface = Color(0xFF281D16),
+            onSurface = Color(0xFFF2E8DD),
+            surfaceVariant = Color(0xFF33261D),
+            onSurfaceVariant = Color(0xFFBFAC9C),
+        ),
+        defaultDark = true,
         listOf(Color(0xFF1C1410), Color(0xFFC08A5A), GoldColor),
     ),
 )
 
 fun themeById(id: String): ZadTheme = ZadThemes.firstOrNull { it.id == id } ?: ZadThemes.last()
 
-@Composable
-fun ZadAppTheme(themeId: String, content: @Composable () -> Unit) {
+fun themeScheme(themeId: String, darkOverride: Int): ColorScheme {
     val theme = themeById(themeId)
+    val dark = when (darkOverride) {
+        0 -> false
+        1 -> true
+        else -> theme.defaultDark
+    }
+    return if (dark) theme.darkScheme else theme.lightScheme
+}
+
+@Composable
+fun ZadAppTheme(themeId: String, darkOverride: Int = -1, content: @Composable () -> Unit) {
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-        MaterialTheme(colorScheme = theme.colorScheme, content = content)
+        MaterialTheme(colorScheme = themeScheme(themeId, darkOverride), content = content)
     }
 }
 
