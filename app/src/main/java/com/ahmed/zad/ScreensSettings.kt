@@ -173,7 +173,7 @@ fun SettingsTab(vm: MainViewModel) {
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
-                Button(
+                PressScaleButton(
                     onClick = { vm.changeName(nameDraft.trim()) },
                     enabled = nameDraft.isNotBlank() && nameDraft.trim() != name,
                 ) { Text("حفظ الاسم") }
@@ -202,17 +202,20 @@ fun SettingsTab(vm: MainViewModel) {
                         Text(salaryPreview.second ?: "", color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
                     }
                 }
-                Button(onClick = { vm.setExpectedSalary(salaryDraft.trim()) }) { Text("حفظ المرتب") }
+                PressScaleButton(onClick = { vm.setExpectedSalary(salaryDraft.trim()) }) { Text("حفظ المرتب") }
             }
         }
 
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("الثيم", fontWeight = FontWeight.SemiBold)
-                ThemePicker(selected = themeId, onSelect = { vm.setTheme(it) })
                 val darkOverride by vm.darkOverride.collectAsState()
                 val theme = themeById(themeId)
                 val isDark = if (darkOverride == -1) theme.defaultDark else darkOverride == 1
+                ThemePicker(selected = themeId, isDark = isDark, onSelect = { id, dark ->
+                    vm.setTheme(id)
+                    vm.setDarkOverride(if (dark) 1 else 0)
+                })
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("الوضع الداكن", modifier = Modifier.weight(1f), fontSize = 14.sp)
                     Switch(
@@ -282,7 +285,7 @@ fun SettingsTab(vm: MainViewModel) {
                 }
                 CategoryChips(selected = budgetCategory, categories = vm.allCategories(), onSelect = { budgetCategory = it })
                 CalculatorAmountInput(value = budgetExpr, onValueChange = { budgetExpr = it }, label = "حد الشهر للفئة المختارة")
-                Button(
+                PressScaleButton(
                     onClick = {
                         try {
                             val (p, _) = evaluateToPiasters(budgetExpr)
@@ -406,7 +409,7 @@ fun SettingsTab(vm: MainViewModel) {
                         singleLine = true,
                     )
                 }
-                Button(
+                PressScaleButton(
                     onClick = {
                         vm.addCategory(newCategoryName, newCategoryEmoji, "#5C6BC0")
                         newCategoryName = ""
@@ -431,7 +434,7 @@ fun SettingsTab(vm: MainViewModel) {
                         label = { Text("الشهر اللي فات", fontSize = 12.sp) },
                     )
                 }
-                Button(
+                PressScaleButton(
                     onClick = {
                         val ym = java.time.YearMonth.now().minusMonths(csvMonthOffset.toLong())
                         csvLauncher.launch("zad-${ym.year}-" + "%02d".format(ym.monthValue) + ".csv")
@@ -486,12 +489,12 @@ fun SettingsTab(vm: MainViewModel) {
                 }
             },
             confirmButton = {
-                Button(
+                PressScaleButton(
                     onClick = { vm.setPassword(pw); showPasswordDialog = false },
                     enabled = pw.length >= 4,
                 ) { Text("حفظ") }
             },
-            dismissButton = { Button(onClick = { showPasswordDialog = false }) { Text("إلغاء") } },
+            dismissButton = { PressScaleButton(onClick = { showPasswordDialog = false }) { Text("إلغاء") } },
         )
     }
 }
@@ -611,7 +614,7 @@ fun AboutScreen(vm: MainViewModel) {
             ) { Text("LinkedIn", fontSize = 13.sp) }
         }
 
-        Button(onClick = { vm.closeOverlay() }, modifier = Modifier.fillMaxWidth()) { Text("رجوع") }
+        PressScaleButton(onClick = { vm.closeOverlay() }, modifier = Modifier.fillMaxWidth()) { Text("رجوع") }
         Spacer(Modifier.height(24.dp))
     }
 
@@ -631,7 +634,7 @@ fun EasterEggDialog(onClose: () -> Unit) {
     )
     AlertDialog(
         onDismissRequest = onClose,
-        confirmButton = { Button(onClick = onClose) { Text("❤") } },
+        confirmButton = { PressScaleButton(onClick = onClose) { Text("❤") } },
         title = { Text("🎉 انت لقيت السر!", fontWeight = FontWeight.Bold) },
         text = {
             Column(
