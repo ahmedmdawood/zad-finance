@@ -24,6 +24,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -76,6 +78,33 @@ fun CategoryChips(selected: String, categories: List<String>, onSelect: (String)
         }
     }
 }
+/** Button with a satisfying press bounce on top of the standard ripple. */
+@Composable
+fun PressScaleButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    content: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit,
+) {
+    val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    val pressed by androidx.compose.foundation.interaction.collectIsPressedAsState(interactionSource)
+    val scale by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (pressed) 0.92f else 1f,
+        animationSpec = androidx.compose.animation.core.spring(
+            dampingRatio = androidx.compose.animation.core.Spring.DampingRatioMediumBouncy,
+            stiffness = androidx.compose.animation.core.Spring.StiffnessMedium,
+        ),
+        label = "pressScale",
+    )
+    androidx.compose.material3.Button(
+        onClick = onClick,
+        modifier = androidx.compose.ui.graphics.graphicsLayer(modifier, scaleX = scale, scaleY = scale),
+        enabled = enabled,
+        interactionSource = interactionSource,
+        content = content,
+    )
+}
+
 val IncomeGreen = Color(0xFF66BB6A)
 val ExpenseRed = Color(0xFFE57373)
 
@@ -289,7 +318,7 @@ fun MoneyText(
 }
 
 @Composable
-fun ThemePicker(selected: String, onSelect: (String) -> Unit) {
+fun ThemePicker(selected: String, isDark: Boolean, onSelect: (String, Boolean) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         ZadThemes.forEach { theme ->
             val isSelected = theme.id == selected
@@ -304,11 +333,11 @@ fun ThemePicker(selected: String, onSelect: (String) -> Unit) {
                         else MaterialTheme.colorScheme.surfaceVariant,
                         shape = RoundedCornerShape(14.dp)
                     )
-                    .clickable { onSelect(theme.id) }
+                    .clickable { onSelect(theme.id, isDark) }
             ) {
+                Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)
                 ) {
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         theme.preview.forEach { c ->
@@ -337,6 +366,19 @@ fun ThemePicker(selected: String, onSelect: (String) -> Unit) {
                             tint = MaterialTheme.colorScheme.primary
                         )
                     }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
+                    androidx.compose.material3.FilterChip(
+                        selected = isSelected && !isDark,
+                        onClick = { onSelect(theme.id, false) },
+                        label = { Text("☀ فاتح", fontSize = 12.sp) },
+                    )
+                    androidx.compose.material3.FilterChip(
+                        selected = isSelected && isDark,
+                        onClick = { onSelect(theme.id, true) },
+                        label = { Text("🌙 داكن", fontSize = 12.sp) },
+                    )
+                }
                 }
             }
         }
