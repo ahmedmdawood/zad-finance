@@ -4,17 +4,29 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- زاد: a confident rising stroke with the ز dot -->
+    <!-- زاد mark: the traveler's provision pouch, gold on espresso -->
     <path
-        android:fillColor="#DFAF4E"
-        android:pathData="M40,34 m-4.5,0 a4.5,4.5 0 1,1 9,0 a4.5,4.5 0 1,1 -9,0" />
+        android:fillColor="#DEB25C"
+        android:pathData="M54,44 m-19,0 a19,19 0 1,1 38,0 a19,19 0 1,1 -38,0" />
     <path
-        android:strokeColor="#DFAF4E"
-        android:strokeWidth="7.5"
+        android:fillColor="#BE8E3E"
+        android:pathData="M35,63 a19,19 0 0,0 38,0 Z" />
+    <path
+        android:fillColor="#DEB25C"
+        android:pathData="M47.5,47 L54,37.5 L60.5,47 Z" />
+    <path
+        android:strokeColor="#1C1410"
+        android:strokeWidth="2.6"
         android:strokeLineCap="round"
-        android:strokeLineJoin="round"
-        android:pathData="M32,74 L49,57 L61,67 L76,44" />
+        android:pathData="M47,47.5 L61,47.5" />
     <path
-        android:fillColor="#DFAF4E"
-        android:pathData="M79.9,38.1 L80.4,49.3 L69.4,42.1 Z" />
+        android:strokeColor="#DEB25C"
+        android:strokeWidth="3.0"
+        android:strokeLineCap="round"
+        android:pathData="M54,38 L45.5,31 M54,38 L54,28.5 M54,38 L62.5,31" />
+    <path
+        android:strokeColor="#F6D878"
+        android:strokeWidth="2.4"
+        android:strokeLineCap="round"
+        android:pathData="M45,60 a12,12 0 0,1 4,-8" />
 </vector>
