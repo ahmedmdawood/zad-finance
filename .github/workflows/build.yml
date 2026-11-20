@@ -30,12 +30,12 @@ jobs:
         run: gradle assembleDebug --no-daemon --stacktrace
 
       - name: Rename APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk zad.apk
+        run: cp app/build/outputs/apk/debug/app-debug.apk zad-v1.1.apk
 
       - name: Publish to Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0
-          name: ZAD v1.0
-          body: First version of ZAD - debug APK for testing. Created with care by ahmed dawood
-          files: zad.apk
+          tag_name: v1.1
+          name: ZAD v1.1
+          body: ZAD v1.1 - new package id, new icon. Created with care by ahmed dawood
+          files: zad-v1.1.apk
