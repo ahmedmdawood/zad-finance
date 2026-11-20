@@ -1,4 +1,4 @@
-name: Build debug APK
+name: Build release APK
 
 on:
   push:
@@ -26,16 +26,16 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Build debug APK
-        run: gradle assembleDebug --no-daemon --stacktrace
+      - name: Build release APK
+        run: gradle assembleRelease --no-daemon --stacktrace
 
       - name: Rename APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk zad-v1.1.apk
+        run: cp app/build/outputs/apk/release/app-release.apk zad-v1.2.apk
 
       - name: Publish to Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.1
-          name: ZAD v1.1
-          body: ZAD v1.1 - new package id, new icon. Created with care by ahmed dawood
-          files: zad-v1.1.apk
+          tag_name: v1.2
+          name: ZAD v1.2
+          body: ZAD v1.2 - hardened install compatibility (release build, v1+v2+v3 signatures, no SMS permission). Created with care by ahmed dawood
+          files: zad-v1.2.apk
