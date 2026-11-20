@@ -520,6 +520,7 @@ fun AboutScreen(vm: MainViewModel) {
                     Brush.linearGradient(
                         listOf(
                             MaterialTheme.colorScheme.primary,
+                            MaterialTheme.colorScheme.tertiary,
                             MaterialTheme.colorScheme.secondary,
                         )
                     )
