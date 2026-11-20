@@ -67,7 +67,7 @@ class MainActivity : FragmentActivity() {
                 if (darkOverride == baseDark) return@LaunchedEffect
                 revealing = true
                 reveal.snapTo(0f)
-                reveal.animateTo(1f, tween(420, easing = FastOutSlowInEasing))
+                reveal.animateTo(1f, tween(650, easing = FastOutSlowInEasing))
                 baseDark = darkOverride
                 revealing = false
             }
