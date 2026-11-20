@@ -1,9 +1,13 @@
 package com.ahmed.zad
 
+import android.content.Intent
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -21,38 +25,136 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.GenericShape
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.viewmodel.compose.viewModel
 
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        ZadNotifications.createChannels(this)
         BalanceWidgetProvider.refresh(this)
         setContent {
             val vm: MainViewModel = viewModel()
             val themeId by vm.themeId.collectAsState()
-            ZadAppTheme(themeId) {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background,
-                ) {
-                    val name by vm.userName.collectAsState()
-                    if (name.isEmpty()) {
-                        OnboardingScreen(vm)
-                    } else {
-                        MainScaffold(vm)
+            val darkOverride by vm.darkOverride.collectAsState()
+
+            // Ink-blot reveal for the manual light/dark switch: the new theme is
+            // revealed inside a circle expanding from the toggle. Cheap: a second
+            // composition clipped to a circle for ~400ms, no shaders or bitmaps.
+            var baseDark by remember { mutableIntStateOf(darkOverride) }
+            var revealing by remember { mutableStateOf(false) }
+            val reveal = remember { Animatable(0f) }
+            var rootSize by remember { mutableStateOf(androidx.compose.ui.geometry.Size.Zero) }
+
+            LaunchedEffect(darkOverride) {
+                if (darkOverride == baseDark) return@LaunchedEffect
+                revealing = true
+                reveal.snapTo(0f)
+                reveal.animateTo(1f, tween(420, easing = FastOutSlowInEasing))
+                baseDark = darkOverride
+                revealing = false
+            }
+
+            Box(
+                Modifier.fillMaxSize().onGloballyPositioned { coords ->
+                    rootSize = androidx.compose.ui.geometry.Size(
+                        coords.size.width.toFloat(), coords.size.height.toFloat()
+                    )
+                }
+            ) {
+                ZadAppTheme(themeId, baseDark) {
+                    ZadAppContent(vm)
+                }
+                if (revealing && rootSize.width > 0f) {
+                    val origin = if (ThemeReveal.origin.isSpecified) ThemeReveal.origin
+                        else Offset(rootSize.width / 2f, rootSize.height / 2f)
+                    val maxRadius = run {
+                        val corners = listOf(
+                            Offset(0f, 0f), Offset(rootSize.width, 0f),
+                            Offset(0f, rootSize.height), Offset(rootSize.width, rootSize.height),
+                        )
+                        corners.maxOf { (it - origin).getDistance() }
                     }
-                    val needsPassword by vm.needsPasswordPrompt.collectAsState()
-                    if (needsPassword) PasswordPromptDialog(vm)
+                    val revealShape = GenericShape { _, _ ->
+                        val r = reveal.value * maxRadius
+                        addOval(Rect(origin.x - r, origin.y - r, origin.x + r, origin.y + r))
+                    }
+                    Box(Modifier.fillMaxSize().clip(revealShape)) {
+                        ZadAppTheme(themeId, darkOverride) {
+                            ZadAppContent(vm)
+                        }
+                    }
                 }
             }
         }
+        handleLaunchIntent(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleLaunchIntent(intent)
+    }
+
+    private fun handleLaunchIntent(intent: Intent?) {
+        if (intent?.getBooleanExtra(ZadNotifications.EXTRA_OPEN_ADD_EXPENSE, false) == true) {
+            quickAddRequested.value = true
+        }
+    }
+
+    companion object {
+        val quickAddRequested: androidx.compose.runtime.MutableState<Boolean> =
+            androidx.compose.runtime.mutableStateOf(false)
+    }
+}
+
+/** Screen position of the light/dark switch, set from Settings so the reveal starts there. */
+object ThemeReveal {
+    var origin: Offset = Offset.Unspecified
+}
+
+@Composable
+fun ZadAppContent(vm: MainViewModel) {
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.background,
+    ) {
+        val name by vm.userName.collectAsState()
+        val unlocked by vm.appUnlocked.collectAsState()
+        val lockEnabled by vm.appLockEnabled.collectAsState()
+        val activity = androidx.compose.ui.platform.LocalContext.current as? MainActivity
+        when {
+            name.isEmpty() -> OnboardingScreen(vm)
+            lockEnabled && !unlocked -> LockedScreen(onUnlock = {
+                activity?.let {
+                    AppLock.authenticate(
+                        it,
+                        onSuccess = { vm.markAppUnlocked() },
+                        onFailed = { },
+                    )
+                }
+            })
+            else -> MainScaffold(vm)
+        }
+        val needsPassword by vm.needsPasswordPrompt.collectAsState()
+        if (needsPassword) PasswordPromptDialog(vm)
     }
 }
 
@@ -60,6 +162,11 @@ class MainActivity : ComponentActivity() {
 fun MainScaffold(vm: MainViewModel) {
     val tab by vm.tab.collectAsState()
     val overlay by vm.overlay.collectAsState()
+
+    if (MainActivity.quickAddRequested.value) {
+        MainActivity.quickAddRequested.value = false
+        vm.openOverlay(Overlay.AddTransaction("EXPENSE"))
+    }
 
     Scaffold(
         bottomBar = {
@@ -103,7 +210,6 @@ fun MainScaffold(vm: MainViewModel) {
             }
         }
     ) { padding ->
-        val modifier = Modifier.padding(padding)
         when (val current = overlay) {
             is Overlay.AddTransaction -> AddTransactionScreen(vm, current.type)
             is Overlay.CardPurchase -> CardPurchaseScreen(vm, current.accountId)
@@ -117,6 +223,9 @@ fun MainScaffold(vm: MainViewModel) {
             Overlay.AddPlan -> AddPlanScreen(vm)
             is Overlay.PlanDetail -> PlanDetailScreen(vm, current.planId)
             Overlay.About -> AboutScreen(vm)
+            Overlay.Charts -> ChartsScreen(vm)
+            Overlay.Calendar -> CalendarScreen(vm)
+            Overlay.Trash -> TrashScreen(vm)
             Overlay.None -> when (tab) {
                 ZadTab.HOME -> HomeTab(vm)
                 ZadTab.ACCOUNTS -> AccountsTab(vm)
