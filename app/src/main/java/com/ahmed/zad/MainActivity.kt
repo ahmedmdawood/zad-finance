@@ -8,6 +8,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.shape.GenericShape
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -36,9 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.graphics.GenericShape
 import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import androidx.fragment.app.FragmentActivity
@@ -84,7 +83,7 @@ class MainActivity : FragmentActivity() {
                     ZadAppContent(vm)
                 }
                 if (revealing && rootSize.width > 0f) {
-                    val origin = if (ThemeReveal.origin.isSpecified) ThemeReveal.origin
+                    val origin = if (ThemeReveal.origin != Offset.Unspecified) ThemeReveal.origin
                         else Offset(rootSize.width / 2f, rootSize.height / 2f)
                     val maxRadius = run {
                         val corners = listOf(
