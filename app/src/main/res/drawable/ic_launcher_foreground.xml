@@ -4,17 +4,17 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Ascending gold bars over a calm coffee disc -->
+    <!-- زاد: a confident rising stroke with the ز dot -->
     <path
-        android:fillColor="#3A2C22"
-        android:pathData="M54,30 a24,24 0 1 1 -0.01,0 z" />
+        android:fillColor="#DFAF4E"
+        android:pathData="M40,34 m-4.5,0 a4.5,4.5 0 1,1 9,0 a4.5,4.5 0 1,1 -9,0" />
     <path
-        android:fillColor="#C9A227"
-        android:pathData="M42,64 h6 v10 h-6 z" />
+        android:strokeColor="#DFAF4E"
+        android:strokeWidth="7.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M32,74 L49,57 L61,67 L76,44" />
     <path
-        android:fillColor="#C9A227"
-        android:pathData="M51,56 h6 v18 h-6 z" />
-    <path
-        android:fillColor="#C9A227"
-        android:pathData="M60,48 h6 v26 h-6 z" />
+        android:fillColor="#DFAF4E"
+        android:pathData="M79.9,38.1 L80.4,49.3 L69.4,42.1 Z" />
 </vector>
