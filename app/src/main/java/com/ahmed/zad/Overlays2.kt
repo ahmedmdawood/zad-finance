@@ -81,7 +81,7 @@ fun AddObligationScreen(vm: MainViewModel) {
             )
         }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp) }
-        Button(
+        PressScaleButton(
             onClick = {
                 val days = customDays.toIntOrNull()
                 error = when {
@@ -125,7 +125,7 @@ fun PayOccurrenceScreen(vm: MainViewModel, occurrenceId: Long) {
         Text("الدفع من حساب", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
         AccountChips(liquid, accountId) { accountId = it }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp) }
-        Button(
+        PressScaleButton(
             onClick = {
                 error = validatePositive2(expression)
                     ?: if (accountId == null) "اختار حساب الدفع" else null
@@ -159,7 +159,7 @@ fun AddPlanScreen(vm: MainViewModel) {
         CalculatorAmountInput(value = target, onValueChange = { target = it }, label = "المبلغ المستهدف")
         CalculatorAmountInput(value = initial, onValueChange = { initial = it }, label = "تخصيص مبدئي (اختياري)")
         error?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp) }
-        Button(
+        PressScaleButton(
             onClick = {
                 error = when {
                     name.isBlank() -> "اكتب اسم الخطة"
@@ -230,7 +230,7 @@ fun PlanDetailScreen(vm: MainViewModel, planId: Long) {
         }
         CalculatorAmountInput(value = amountExpr, onValueChange = { amountExpr = it }, label = "مبلغ")
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(
+            PressScaleButton(
                 onClick = {
                     error = validatePositive2(amountExpr)
                     if (error == null) { vm.allocateToPlan(planId, amountExpr, "ALLOCATE"); amountExpr = "" }
@@ -238,7 +238,7 @@ fun PlanDetailScreen(vm: MainViewModel, planId: Long) {
                 modifier = Modifier.weight(1f),
                 enabled = plan.status == "ACTIVE",
             ) { Text("تخصيص", fontSize = 13.sp) }
-            Button(
+            PressScaleButton(
                 onClick = {
                     error = validatePositive2(amountExpr)
                     if (error == null) { vm.allocateToPlan(planId, amountExpr, "WITHDRAW"); amountExpr = "" }
@@ -292,7 +292,7 @@ fun PasswordPromptDialog(vm: MainViewModel) {
             }
         },
         confirmButton = {
-            Button(onClick = {
+            PressScaleButton(onClick = {
                 when (val result = vm.tryUnlock(pw)) {
                     is MainViewModel.UnlockResult.Success -> { pw = ""; message = null }
                     is MainViewModel.UnlockResult.Wrong ->
@@ -302,6 +302,6 @@ fun PasswordPromptDialog(vm: MainViewModel) {
                 }
             }) { Text("فتح") }
         },
-        dismissButton = { Button(onClick = { vm.dismissPasswordPrompt() }) { Text("إلغاء") } },
+        dismissButton = { PressScaleButton(onClick = { vm.dismissPasswordPrompt() }) { Text("إلغاء") } },
     )
 }
