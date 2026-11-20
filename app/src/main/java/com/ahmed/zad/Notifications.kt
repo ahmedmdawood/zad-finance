@@ -41,10 +41,12 @@ object ZadNotifications {
 
     /** Persistent low-priority notification that opens the add-expense form directly. */
     fun showQuickAdd(context: Context, show: Boolean) {
-        if (!show) {
-            manager(context).cancel(100)
-            return
-        }
+        try {
+            if (!show) {
+                manager(context).cancel(100)
+                return
+            }
+            if (androidx.core.app.NotificationManagerCompat.from(context).areNotificationsEnabled().not()) return
         val intent = Intent(context, MainActivity::class.java).apply {
             putExtra(EXTRA_OPEN_ADD_EXPENSE, true)
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -60,10 +62,11 @@ object ZadNotifications {
             .setOngoing(true)
             .setSilent(true)
             .build()
-        manager(context).notify(100, notification)
+            manager(context).notify(100, notification)
+        } catch (e: Exception) { }
     }
 
-    fun scheduleDailyReminder(context: Context, hour: Int, minute: Int) {
+    fun scheduleDailyReminder(context: Context, hour: Int, minute: Int) = try {
         val alarm = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         val intent = PendingIntent.getBroadcast(
             context, 1,
@@ -78,7 +81,7 @@ object ZadNotifications {
             AlarmManager.INTERVAL_DAY,
             intent,
         )
-    }
+    } catch (e: Exception) { }
 
     fun cancelDailyReminder(context: Context) {
         val alarm = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
@@ -91,7 +94,7 @@ object ZadNotifications {
         )
     }
 
-    fun scheduleWeeklyDigest(context: Context) {
+    fun scheduleWeeklyDigest(context: Context) = try {
         val alarm = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         val intent = PendingIntent.getBroadcast(
             context, 2,
@@ -106,7 +109,7 @@ object ZadNotifications {
             AlarmManager.INTERVAL_DAY * 7,
             intent,
         )
-    }
+    } catch (e: Exception) { }
 
     fun cancelWeeklyDigest(context: Context) {
         val alarm = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
@@ -159,7 +162,7 @@ class ZadAlarmReceiver : BroadcastReceiver() {
                     .setContentIntent(openApp)
                     .setAutoCancel(true)
                     .build()
-                manager.notify(200, notification)
+                try { manager.notify(200, notification) } catch (e: Exception) { }
             }
             ZadNotifications.ACTION_WEEKLY_DIGEST -> {
                 val summary = ZadNotifications.weeklySummary(context)
@@ -171,7 +174,7 @@ class ZadAlarmReceiver : BroadcastReceiver() {
                     .setContentIntent(openApp)
                     .setAutoCancel(true)
                     .build()
-                manager.notify(300, notification)
+                try { manager.notify(300, notification) } catch (e: Exception) { }
             }
         }
     }
