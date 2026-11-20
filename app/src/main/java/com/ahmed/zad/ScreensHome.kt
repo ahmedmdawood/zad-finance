@@ -1,13 +1,17 @@
 package com.ahmed.zad
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -33,8 +37,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.unit.sp
 import java.text.SimpleDateFormat
@@ -123,21 +129,35 @@ fun HomeTab(vm: MainViewModel) {
         }
 
         item {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                modifier = Modifier.fillMaxWidth(),
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(22.dp))
+                    .background(
+                        Brush.linearGradient(
+                            listOf(
+                                MaterialTheme.colorScheme.primary,
+                                MaterialTheme.colorScheme.secondary,
+                            )
+                        )
+                    )
+                    .padding(18.dp),
             ) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("صافي الوضع", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        "💼 صافي الوضع",
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f),
+                    )
                     MoneyText(
                         vm.totalAssets() - vm.totalLiabilities(), hidden,
-                        fontSize = 28, fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
+                        fontSize = 30, fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.onPrimary,
                     )
                     Spacer(Modifier.height(6.dp))
-                    TotalRow("إجمالي الأصول", vm.totalAssets(), hidden)
-                    TotalRow("الالتزامات", vm.totalLiabilities(), hidden)
-                    TotalRow("السيولة الحرة", vm.freeLiquidity(), hidden)
+                    TotalRow("إجمالي الأصول", vm.totalAssets(), hidden, MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f), MaterialTheme.colorScheme.onPrimary)
+                    TotalRow("الالتزامات", vm.totalLiabilities(), hidden, MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f), MaterialTheme.colorScheme.onPrimary)
+                    TotalRow("السيولة الحرة", vm.freeLiquidity(), hidden, MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f), MaterialTheme.colorScheme.onPrimary)
                 }
             }
         }
@@ -285,16 +305,32 @@ fun HomeTab(vm: MainViewModel) {
 }
 
 @Composable
-fun TotalRow(label: String, amount: Long, hidden: Boolean) {
+fun TotalRow(
+    label: String,
+    amount: Long,
+    hidden: Boolean,
+    labelColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.onSurfaceVariant,
+    amountColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.onSurface,
+) {
     Row(modifier = Modifier.fillMaxWidth()) {
-        Text(label, Modifier.weight(1f), fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        MoneyText(amount, hidden, fontSize = 14)
+        Text(label, Modifier.weight(1f), fontSize = 14.sp, color = labelColor)
+        MoneyText(amount, hidden, fontSize = 14, color = amountColor)
     }
 }
 
 @Composable
 fun QuickAction(label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    Button(onClick = onClick, modifier = modifier) { Text(label, fontSize = 14.sp) }
+    val emoji = when (label) {
+        "دخل" -> "💵"
+        "مصروف" -> "💸"
+        "تحويل" -> "🔁"
+        "التقارير" -> "📊"
+        "التقويم" -> "📅"
+        else -> "✨"
+    }
+    Button(onClick = onClick, modifier = modifier) {
+        Text("$emoji $label", fontSize = 14.sp)
+    }
 }
 
 @Composable
@@ -348,6 +384,29 @@ fun TransactionRow(vm: MainViewModel, tx: TransactionEntity, accounts: List<Acco
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
         ) {
+            val bubbleEmoji = when (tx.type) {
+                "EXPENSE" -> categoryEmoji(tx.category)
+                "INCOME" -> "💵"
+                "TRANSFER" -> "🔁"
+                "DEBT_GIVEN", "DEBT_COLLECTED", "DEBT_BORROWED", "DEBT_REPAID" -> "🤝"
+                "CARD_PURCHASE", "CARD_PAYMENT" -> "💳"
+                else -> "✨"
+            }
+            val bubbleTint = when (tx.type) {
+                "EXPENSE" -> ExpenseRed
+                "INCOME", "DEBT_COLLECTED", "DEBT_BORROWED" -> IncomeGreen
+                else -> MaterialTheme.colorScheme.primary
+            }
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(38.dp)
+                    .clip(CircleShape)
+                    .background(bubbleTint.copy(alpha = 0.14f)),
+            ) {
+                Text(bubbleEmoji, fontSize = 17.sp)
+            }
+            Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
                 Text(
                     if (tx.note.isNotBlank()) tx.note else label,
