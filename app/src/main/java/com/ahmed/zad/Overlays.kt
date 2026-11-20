@@ -139,7 +139,7 @@ fun AddTransactionScreen(vm: MainViewModel, type: String) {
             modifier = Modifier.fillMaxWidth(),
         )
         error?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp) }
-        Button(
+        PressScaleButton(
             onClick = {
                 val (_, err) = validatePositive(expression)
                 error = when {
@@ -177,7 +177,7 @@ fun CardPurchaseScreen(vm: MainViewModel, accountId: Long) {
             modifier = Modifier.fillMaxWidth(),
         )
         error?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp) }
-        Button(
+        PressScaleButton(
             onClick = {
                 val (_, err) = validatePositive(expression)
                 error = err
@@ -204,7 +204,7 @@ fun CardPaymentScreen(vm: MainViewModel, accountId: Long) {
         Text("الدفع من حساب", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
         AccountChips(liquid, fromAccount) { fromAccount = it }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp) }
-        Button(
+        PressScaleButton(
             onClick = {
                 val (_, err) = validatePositive(expression)
                 error = err ?: if (fromAccount == null) "اختار حساب الدفع" else null
@@ -241,7 +241,7 @@ fun AddAccountScreen(vm: MainViewModel) {
             CalculatorAmountInput(value = opening, onValueChange = { opening = it }, label = "الرصيد الافتتاحي")
         }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp) }
-        Button(
+        PressScaleButton(
             onClick = {
                 error = when {
                     name.isBlank() -> "اكتب اسم الحساب"
@@ -286,7 +286,7 @@ fun AddDebtScreen(vm: MainViewModel) {
             AccountChips(liquid, accountId) { accountId = if (accountId == it) null else it }
         }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp) }
-        Button(
+        PressScaleButton(
             onClick = {
                 val (_, err) = validatePositive(expression)
                 error = when {
@@ -323,7 +323,7 @@ fun PayDebtScreen(vm: MainViewModel, debtId: Long) {
             AccountChips(liquid, accountId) { accountId = if (accountId == it) null else it }
         }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp) }
-        Button(
+        PressScaleButton(
             onClick = {
                 val (_, err) = validatePositive(expression)
                 error = err
