@@ -3,6 +3,7 @@ package com.ahmed.zad
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -12,7 +13,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -34,6 +37,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
@@ -64,7 +70,6 @@ fun SettingsTab(vm: MainViewModel) {
     val weeklyDigestEnabled by vm.weeklyDigestEnabled.collectAsState()
     val dailyReminderEnabled by vm.dailyReminderEnabled.collectAsState()
     val dailyReminderMinutes by vm.dailyReminderMinutes.collectAsState()
-    val smsParsingEnabled by vm.smsParsingEnabled.collectAsState()
     val accountsList by vm.accounts.collectAsState()
     val customCategories by vm.customCategories.collectAsState()
     val trashItems by vm.trash.collectAsState()
@@ -76,12 +81,6 @@ fun SettingsTab(vm: MainViewModel) {
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { }
-    val smsPermissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        if (granted) vm.setSmsParsing(true, vm.smsDefaultAccountId())
-    }
-
     val csvLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("text/csv")
     ) { uri: Uri? ->
@@ -100,7 +99,9 @@ fun SettingsTab(vm: MainViewModel) {
 
     fun askNotificationPermission() {
         if (android.os.Build.VERSION.SDK_INT >= 33) {
-            notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+            try {
+                notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+            } catch (e: Exception) { }
         }
     }
     var budgetCategory by remember { mutableStateOf(EXPENSE_CATEGORIES.first()) }
@@ -208,7 +209,17 @@ fun SettingsTab(vm: MainViewModel) {
                 val isDark = if (darkOverride == -1) theme.defaultDark else darkOverride == 1
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("الوضع الداكن", modifier = Modifier.weight(1f), fontSize = 14.sp)
-                    Switch(checked = isDark, onCheckedChange = { vm.setDarkOverride(if (it) 1 else 0) })
+                    Switch(
+                        checked = isDark,
+                        onCheckedChange = { vm.setDarkOverride(if (it) 1 else 0) },
+                        modifier = Modifier.onGloballyPositioned { coords ->
+                            val pos = coords.localToWindow(androidx.compose.ui.geometry.Offset.Zero)
+                            ThemeReveal.origin = androidx.compose.ui.geometry.Offset(
+                                pos.x + coords.size.width / 2f,
+                                pos.y + coords.size.height / 2f,
+                            )
+                        },
+                    )
                 }
             }
         }
@@ -250,11 +261,15 @@ fun SettingsTab(vm: MainViewModel) {
             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("ميزانيات الفئات", fontWeight = FontWeight.SemiBold)
                 budgets.forEach { budget ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(budget.category, modifier = Modifier.weight(1f), fontSize = 14.sp)
-                        Text(formatMoney(budget.limitPiasters), fontSize = 13.sp)
-                        Spacer(Modifier.padding(horizontal = 4.dp))
-                        OutlinedButton(onClick = { vm.clearBudget(budget.category) }) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.weight(1f)) {
+                            Text(categoryEmoji(budget.category) + " " + budget.category, fontSize = 14.sp, maxLines = 1)
+                            Text(
+                                "حد الشهر: " + formatMoney(budget.limitPiasters),
+                                fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        TextButton(onClick = { vm.clearBudget(budget.category) }) {
                             Text("إزالة", fontSize = 12.sp)
                         }
                     }
@@ -359,40 +374,6 @@ fun SettingsTab(vm: MainViewModel) {
 
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("رسائل البنك (SMS)", fontWeight = FontWeight.SemiBold)
-                Text(
-                    "لو فعلتها، رسائل الخصم من البنك بتتسجل كمصروف تلقائيًا. كل حاجة بتحصل على جهازك بس.",
-                    fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("تسجيل المصاريف من رسائل البنك", modifier = Modifier.weight(1f), fontSize = 14.sp)
-                    Switch(checked = smsParsingEnabled, onCheckedChange = { enabled ->
-                        if (enabled) {
-                            val accountId = accountsList.firstOrNull()?.id ?: 0L
-                            vm.setSmsParsing(true, accountId)
-                            smsPermissionLauncher.launch(android.Manifest.permission.RECEIVE_SMS)
-                        } else {
-                            vm.setSmsParsing(false, 0L)
-                        }
-                    })
-                }
-                if (smsParsingEnabled && accountsList.isNotEmpty()) {
-                    Text("تتسجل على حساب:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        accountsList.take(4).forEach { account ->
-                            FilterChip(
-                                selected = vm.smsDefaultAccountId() == account.id,
-                                onClick = { vm.setSmsParsing(true, account.id) },
-                                label = { Text(account.name, fontSize = 12.sp) },
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("فئات مخصصة", fontWeight = FontWeight.SemiBold)
                 if (customCategories.isNotEmpty()) {
                     customCategories.forEach { category ->
@@ -444,10 +425,13 @@ fun SettingsTab(vm: MainViewModel) {
                         label = { Text("الشهر اللي فات", fontSize = 12.sp) },
                     )
                 }
-                Button(onClick = {
-                    val ym = java.time.YearMonth.now().minusMonths(csvMonthOffset.toLong())
-                    csvLauncher.launch("zad-${ym.year}-" + "%02d".format(ym.monthValue) + ".csv")
-                }) { Text("تصدير الشهر المختار") }
+                Button(
+                    onClick = {
+                        val ym = java.time.YearMonth.now().minusMonths(csvMonthOffset.toLong())
+                        csvLauncher.launch("zad-${ym.year}-" + "%02d".format(ym.monthValue) + ".csv")
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("⬇ تصدير الشهر المختار (Excel / CSV)") }
             }
         }
 
@@ -511,45 +495,108 @@ fun AboutScreen(vm: MainViewModel) {
     val uriHandler = LocalUriHandler.current
     val special by vm.isSpecial.collectAsState()
     Column(
-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Spacer(Modifier.height(8.dp))
-        Text("زاد", fontSize = 40.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-        Text("إدارة أموالك، بطريقتك.", color = MaterialTheme.colorScheme.onSurfaceVariant)
 
-        Text(
-            "زاد اتعمل عشان حد زيك: عارف إن الفلوس بتيجي وبتروح، بس مش عارف بالظبط معاه كام، " +
-                "ولا فلوسه فين، ولا بيصرفها في إيه. بدل ما تقعد تجمع الحكاية من كذا مكان، " +
-                "زاد بيلمها لك في مكان واحد: حساباتك، دخلك، مصروفك، ديونك، بطاقاتك، " +
-                "والتزاماتك وخططك. كله على جهازك، من غير إنترنت ولا حسابات.",
-            fontSize = 15.sp, lineHeight = 24.sp,
-        )
-        Text("«احلم وإحنا ننفذ.»", fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
-
-        if (special) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                AdBadge()
-                Spacer(Modifier.padding(horizontal = 4.dp))
-                Text("أحمد داود", color = GoldColor, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+        // Hero: brand block with a two-tone wash.
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(26.dp))
+                .background(
+                    Brush.linearGradient(
+                        listOf(
+                            MaterialTheme.colorScheme.primary,
+                            MaterialTheme.colorScheme.secondary,
+                        )
+                    )
+                )
+                .padding(horizontal = 22.dp, vertical = 26.dp),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(
+                    "زاد",
+                    fontSize = 46.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.onPrimary,
+                )
+                Text(
+                    "إدارة أموالك، بطريقتك.",
+                    fontSize = 15.sp,
+                    color = MaterialTheme.colorScheme.onPrimary,
+                )
+                Text(
+                    "💰  📊  🎯",
+                    fontSize = 18.sp,
+                )
             }
         }
 
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text("Created with care by ahmed dawood", fontSize = 13.sp)
-            Text("EST. 2026", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("ليه زاد؟", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Text(
+                    "زاد اتعمل عشان حد زيك: عارف إن الفلوس بتيجي وبتروح، بس مش عارف بالظبط معاه كام، " +
+                        "ولا فلوسه فين، ولا بيصرفها في إيه. بدل ما تقعد تجمع الحكاية من كذا مكان، " +
+                        "زاد بيلمها لك في مكان واحد: حساباتك، دخلك، مصروفك، ديونك، بطاقاتك، " +
+                        "والتزاماتك وخططك.",
+                    fontSize = 14.sp, lineHeight = 22.sp,
+                )
+                Text(
+                    "كله على جهازك، من غير إنترنت ولا حسابات.",
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+
+        Text(
+            "«احلم وإحنا ننفذ.»",
+            fontSize = 18.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.align(Alignment.CenterHorizontally),
+        )
+
+        if (special) {
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                Row(
+                    Modifier.padding(14.dp).fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                ) {
+                    AdBadge()
+                    Spacer(Modifier.padding(horizontal = 5.dp))
+                    Text("أحمد داود", color = GoldColor, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                }
+            }
+        }
+
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+            Column(
+                Modifier.padding(16.dp).fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text("Created with care by ahmed dawood", fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                Text("EST. 2026", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = { uriHandler.openUri("https://www.instagram.com/rzzx08/") }) {
-                Text("Instagram", fontSize = 13.sp)
-            }
-            OutlinedButton(onClick = { uriHandler.openUri("https://www.linkedin.com/in/ahmedmohameddawood/") }) {
-                Text("LinkedIn", fontSize = 13.sp)
-            }
+            OutlinedButton(
+                onClick = { uriHandler.openUri("https://www.instagram.com/rzzx08/") },
+                modifier = Modifier.weight(1f),
+            ) { Text("Instagram", fontSize = 13.sp) }
+            OutlinedButton(
+                onClick = { uriHandler.openUri("https://www.linkedin.com/in/ahmedmohameddawood/") },
+                modifier = Modifier.weight(1f),
+            ) { Text("LinkedIn", fontSize = 13.sp) }
         }
 
-        OutlinedButton(onClick = { vm.closeOverlay() }, modifier = Modifier.fillMaxWidth()) { Text("رجوع") }
+        Button(onClick = { vm.closeOverlay() }, modifier = Modifier.fillMaxWidth()) { Text("رجوع") }
         Spacer(Modifier.height(24.dp))
     }
 }
