@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Ascending gold bars over a calm coffee disc -->
+    <path
+        android:fillColor="#3A2C22"
+        android:pathData="M54,30 a24,24 0 1 1 -0.01,0 z" />
+    <path
+        android:fillColor="#C9A227"
+        android:pathData="M42,64 h6 v10 h-6 z" />
+    <path
+        android:fillColor="#C9A227"
+        android:pathData="M51,56 h6 v18 h-6 z" />
+    <path
+        android:fillColor="#C9A227"
+        android:pathData="M60,48 h6 v26 h-6 z" />
+</vector>
