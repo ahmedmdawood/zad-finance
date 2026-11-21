@@ -387,7 +387,7 @@ fun QuickAction(label: String, modifier: Modifier = Modifier, onClick: () -> Uni
     val tint = when (label) {
         "دخل" -> IncomeGreen
         "مصروف" -> ExpenseRed
-        else -> MaterialTheme.colorScheme.primary
+        else -> MaterialTheme.colorScheme.onPrimary
     }
     PressScaleButton(onClick = onClick, modifier = modifier) {
         Column(
