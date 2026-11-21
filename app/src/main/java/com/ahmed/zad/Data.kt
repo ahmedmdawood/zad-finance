@@ -28,7 +28,7 @@ import javax.crypto.spec.PBEKeySpec
 data class AccountEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String,
-    val type: String, // CASH | BANK | CREDIT | OTHER
+    val type: String, // CASH | BANK | EWALLET | CREDIT | OTHER (legacy) | CUSTOM:<name>
     val openingPiasters: Long,
     val openingExpression: String? = null,
     val creditLimitPiasters: Long? = null,
@@ -407,6 +407,11 @@ class ZadPrefs(context: Context) {
     var weeklyDigestEnabled: Boolean
         get() = prefs.getBoolean("weekly_digest", false)
         set(v) = prefs.edit().putBoolean("weekly_digest", v).apply()
+
+    /** User-defined account type names, one per line. */
+    var customAccountTypes: List<String>
+        get() = (prefs.getString("custom_account_types", "") ?: "").split("\n").filter { it.isNotBlank() }
+        set(v) = prefs.edit().putString("custom_account_types", v.joinToString("\n")).apply()
 
     var dailyReminderEnabled: Boolean
         get() = prefs.getBoolean("daily_reminder", false)
