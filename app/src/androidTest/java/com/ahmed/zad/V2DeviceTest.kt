@@ -29,6 +29,7 @@ class V2DeviceTest {
         ZadDatabase.closeInstance()
         app.deleteDatabase("zad.db")
         app.getSharedPreferences("zad_prefs", 0).edit().clear().commit()
+        androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().uiAutomation.grantRuntimePermission(app.packageName, android.Manifest.permission.READ_MEDIA_IMAGES)
     }
     @After fun closeDb() { ZadDatabase.closeInstance() }
 
@@ -94,6 +95,9 @@ class V2DeviceTest {
         compose.onNodeWithText("حفظ الاسم").assertDoesNotExist()
         compose.onNodeWithText("الحساب").performClick()
         compose.onNodeWithText("حفظ الاسم").assertExists()
+        compose.onNodeWithText("اختيار صورة").performScrollTo().performClick()
+        compose.onNodeWithText("اختار صورة").assertExists()
+        compose.onNodeWithText("إلغاء").performClick()
         compose.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, evidence("settings-account.png").outputStream())
         compose.onNodeWithText("الحساب").performClick()
         compose.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, evidence("settings-closed.png").outputStream())
