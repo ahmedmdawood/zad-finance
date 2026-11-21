@@ -30,12 +30,12 @@ jobs:
         run: gradle assembleRelease --no-daemon --stacktrace
 
       - name: Rename APK
-        run: cp app/build/outputs/apk/release/app-release.apk zad-v1.4.1.apk
+        run: cp app/build/outputs/apk/release/app-release.apk zad-v1.5.apk
 
       - name: Publish to Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.4.1
-          name: ZAD v1.4.1
-          body: "ZAD v1.4.1 - hotfix: photo and receipt pickers rewritten for devices without Google services, smoother veil theme transition. Created with care by ahmed dawood"
-          files: zad-v1.4.1.apk
+          tag_name: v1.5
+          name: ZAD v1.5
+          body: "ZAD v1.5 - in-app photo browser and camera capture (no gallery app needed), custom account types with + button. Created with care by ahmed dawood"
+          files: zad-v1.5.apk
