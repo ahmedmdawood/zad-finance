@@ -1,6 +1,7 @@
 package com.ahmed.zad
 
 import android.content.Context
+import android.content.Intent
 import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -32,6 +33,45 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.io.File
 
+/**
+ * Image picking that survives stripped devices without Google services.
+ * Tries several picker intents in order (system photo picker, GET_CONTENT,
+ * classic gallery PICK, OPEN_DOCUMENT) and reports when the device has no
+ * image handler at all, instead of crashing on an unresolvable intent.
+ */
+@Composable
+fun rememberZadImagePicker(
+    onUnavailable: () -> Unit,
+    onPicked: (Uri) -> Unit,
+): () -> Unit {
+    val context = LocalContext.current
+    val launcher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val uri = result.data?.data
+        if (result.resultCode == android.app.Activity.RESULT_OK && uri != null) onPicked(uri)
+    }
+    return {
+        val pm = context.packageManager
+        val candidates = listOf(
+            Intent("android.provider.action.PICK_IMAGES"),
+            Intent(Intent.ACTION_GET_CONTENT).setType("image/*"),
+            Intent(Intent.ACTION_PICK, android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI),
+            Intent(Intent.ACTION_OPEN_DOCUMENT).setType("image/*"),
+        )
+        val chosen = candidates.firstOrNull { it.resolveActivity(pm) != null }
+        if (chosen == null) {
+            onUnavailable()
+        } else {
+            try {
+                launcher.launch(chosen)
+            } catch (e: Exception) {
+                onUnavailable()
+            }
+        }
+    }
+}
+
 /** Copies a picked photo into private app storage (downscaled) and returns its path. */
 fun saveReceipt(context: Context, source: Uri): String {
     val bytes = context.contentResolver.openInputStream(source)?.use { it.readBytes() }
@@ -52,37 +92,32 @@ fun saveReceipt(context: Context, source: Uri): String {
     return target.absolutePath
 }
 
-/** Photo picker row for the expense form. Uses GetContent so it works on devices
- *  without the Google photo picker. */
+/** Photo picker row for the expense form. */
 @Composable
 fun ReceiptPicker(receiptPath: String?, onPicked: (String) -> Unit) {
     val context = LocalContext.current
     var error by remember { mutableStateOf(false) }
-    val launcher = rememberLauncherForActivityResult(
-        ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        if (uri != null) {
+    var noPicker by remember { mutableStateOf(false) }
+    val startPicker = rememberZadImagePicker(
+        onUnavailable = { noPicker = true },
+        onPicked = { uri ->
             try {
                 onPicked(saveReceipt(context, uri))
                 error = false
             } catch (e: Exception) {
                 error = true
             }
-        }
-    }
+        },
+    )
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedButton(onClick = {
-            try {
-                launcher.launch("image/*")
-            } catch (e: Exception) {
-                error = true
-            }
-        }) {
+        OutlinedButton(onClick = { startPicker() }) {
             Icon(Icons.Default.Receipt, contentDescription = null)
             Text(if (receiptPath == null) " صورة فاتورة (اختياري)" else " الفاتورة اتحفظت", fontSize = 13.sp)
         }
     }
-    if (error) {
+    if (noPicker) {
+        Text("الجهاز ده مفيهوش تطبيق يفتح الصور. ثبّت أي تطبيق جاليري أو ملفات وجرب تاني.", color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+    } else if (error) {
         Text("مش قادر أحفظ الصورة", color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
     }
 }
