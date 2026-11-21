@@ -28,6 +28,7 @@ class V2DeviceTest {
     @Before fun resetDb() {
         ZadDatabase.closeInstance()
         app.deleteDatabase("zad.db")
+        File(app.filesDir, "notes.json").delete()
         app.getSharedPreferences("zad_prefs", 0).edit().clear().commit()
         androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().uiAutomation.grantRuntimePermission(app.packageName, android.Manifest.permission.READ_MEDIA_IMAGES)
     }
@@ -103,6 +104,24 @@ class V2DeviceTest {
         compose.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, evidence("settings-closed.png").outputStream())
     }
 
+    @Test fun pinnedNotesAppearInHomeStrip() {
+        File(app.filesDir, "notes.json").delete()
+        val vm = MainViewModel(app)
+        vm.addNote("اول ملاحظة مثبتة للاختبار")
+        Thread.sleep(5)
+        vm.addNote("تاني ملاحظة مثبتة للاختبار")
+        vm.notes.value.forEach { vm.toggleNotePin(it.id) }
+        compose.setContent { ZadAppTheme("gold", 1) { androidx.compose.material3.Surface { BankHeroCard(vm, "أحمد", false, false) } } }
+        compose.waitUntil(10000) { compose.onAllNodesWithText("تاني ملاحظة مثبتة للاختبار").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("+1").assertExists()
+        compose.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, evidence("home-pinned-strip.png").outputStream())
+        compose.onNodeWithText("تاني ملاحظة مثبتة للاختبار").performClick()
+        compose.onNodeWithText("الملاحظات المثبتة 📌").assertExists()
+        compose.onNodeWithText("اول ملاحظة مثبتة للاختبار").assertExists()
+        compose.onNodeWithText("فتح الملاحظات").assertExists()
+        compose.onNodeWithText("إغلاق").performClick()
+        compose.onNodeWithText("الملاحظات المثبتة 📌").assertDoesNotExist()
+    }
     @Test fun accountDeleteRetainsHistoryAndOtherTransferBalance() {
         val dao = ZadDatabase.get(app).dao()
         runBlocking {
