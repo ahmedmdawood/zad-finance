@@ -29,7 +29,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.LayoutDirection
@@ -87,7 +89,7 @@ fun PressScaleButton(
     content: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit,
 ) {
     val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-    val pressed by androidx.compose.foundation.interaction.collectIsPressedAsState(interactionSource)
+    val pressed by interactionSource.collectIsPressedAsState()
     val scale by androidx.compose.animation.core.animateFloatAsState(
         targetValue = if (pressed) 0.92f else 1f,
         animationSpec = androidx.compose.animation.core.spring(
@@ -98,7 +100,7 @@ fun PressScaleButton(
     )
     androidx.compose.material3.Button(
         onClick = onClick,
-        modifier = androidx.compose.ui.graphics.graphicsLayer(modifier, scaleX = scale, scaleY = scale),
+        modifier = modifier.graphicsLayer { scaleX = scale; scaleY = scale },
         enabled = enabled,
         interactionSource = interactionSource,
         content = content,
