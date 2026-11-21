@@ -294,7 +294,10 @@ fun TrashScreen(vm: MainViewModel) {
             } else {
                 items(trash, key = { it.id }) { tx ->
                     if (tx.hidden) {
-                        HiddenTransactionCard()
+                        Column {
+                            HiddenTransactionCard()
+                            androidx.compose.material3.TextButton(onClick = { vm.restoreTransaction(tx.id) }) { Text("استعادة كعملية مخفية") }
+                        }
                     } else Card(
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                         modifier = Modifier.fillMaxWidth(),
