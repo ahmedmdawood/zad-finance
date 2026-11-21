@@ -1,5 +1,13 @@
 package com.ahmed.zad
 
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -128,40 +136,7 @@ fun HomeTab(vm: MainViewModel) {
             }
         }
 
-        item {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(22.dp))
-                    .background(
-                        Brush.linearGradient(
-                            listOf(
-                                MaterialTheme.colorScheme.primary,
-                                MaterialTheme.colorScheme.tertiary,
-                                MaterialTheme.colorScheme.secondary,
-                            )
-                        )
-                    )
-                    .padding(18.dp),
-            ) {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(
-                        "💼 صافي الوضع",
-                        fontSize = 13.sp,
-                        color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f),
-                    )
-                    MoneyText(
-                        vm.totalAssets() - vm.totalLiabilities(), hidden,
-                        fontSize = 30, fontWeight = FontWeight.ExtraBold,
-                        color = MaterialTheme.colorScheme.onPrimary,
-                    )
-                    Spacer(Modifier.height(6.dp))
-                    TotalRow("إجمالي الأصول", vm.totalAssets(), hidden, MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f), MaterialTheme.colorScheme.onPrimary)
-                    TotalRow("الالتزامات", vm.totalLiabilities(), hidden, MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f), MaterialTheme.colorScheme.onPrimary)
-                    TotalRow("السيولة الحرة", vm.freeLiquidity(), hidden, MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f), MaterialTheme.colorScheme.onPrimary)
-                }
-            }
-        }
+        item { BankHeroCard(vm, name, special, hidden) }
 
         item {
             Card(
@@ -261,6 +236,7 @@ fun HomeTab(vm: MainViewModel) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                 QuickAction("التقارير", Modifier.weight(1f)) { vm.openOverlay(Overlay.Charts) }
                 QuickAction("التقويم", Modifier.weight(1f)) { vm.openOverlay(Overlay.Calendar) }
+                QuickAction("ملاحظات", Modifier.weight(1f)) { vm.openOverlay(Overlay.Notes) }
             }
         }
 
@@ -327,6 +303,7 @@ fun QuickAction(label: String, modifier: Modifier = Modifier, onClick: () -> Uni
         "تحويل" -> "🔁"
         "التقارير" -> "📊"
         "التقويم" -> "📅"
+        "ملاحظات" -> "📝"
         else -> "✨"
     }
     PressScaleButton(onClick = onClick, modifier = modifier) {
@@ -454,5 +431,103 @@ fun TransactionRow(vm: MainViewModel, tx: TransactionEntity, accounts: List<Acco
                 PressScaleButton(onClick = { confirmDelete = false }) { Text("إلغاء") }
             },
         )
+    }
+}
+
+
+@Composable
+fun BankHeroCard(vm: MainViewModel, name: String, special: Boolean, hidden: Boolean) {
+    val context = LocalContext.current
+    val photoSet by vm.userPhotoSet.collectAsState()
+    val monthSpend by vm.monthSpendPiasters.collectAsState()
+    val budgets by vm.budgets.collectAsState()
+    val remainingBudget by vm.remainingMonthBudgetPiasters.collectAsState()
+
+    val photo = remember(photoSet) {
+        if (!photoSet) null else runCatching {
+            android.graphics.BitmapFactory.decodeFile(context.filesDir.resolve("user_photo.jpg").absolutePath)?.asImageBitmap()
+        }.getOrNull()
+    }
+
+    val message = remember(monthSpend, budgets, remainingBudget) {
+        when {
+            budgets.isNotEmpty() && remainingBudget != null && remainingBudget!! <= 0L ->
+                "الميزانية قربت تخلص بدري شوية.. خد نفس، بكرة يوم جديد 🌱"
+            budgets.isNotEmpty() && remainingBudget != null ->
+                "ميزانيتك في الأمان لحد دلوقتي، كمّل على البركة 💪"
+            monthSpend == 0L ->
+                "صفحة جديدة وشهر جديد.. يلا نكتبه صح من أوله ✨"
+            else ->
+                "كل قرش بيتسجل هنا، ودي أول خطوة تتحكم في فلوسك 👌"
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .aspectRatio(1.6f)
+            .clip(RoundedCornerShape(24.dp))
+            .background(
+                Brush.linearGradient(
+                    listOf(
+                        MaterialTheme.colorScheme.primary,
+                        MaterialTheme.colorScheme.tertiary,
+                        MaterialTheme.colorScheme.secondary,
+                    )
+                )
+            ),
+    ) {
+        Box(Modifier.size(180.dp).align(Alignment.TopStart).offset((-60).dp, (-60).dp).clip(CircleShape).background(Color.White.copy(alpha = 0.07f)))
+        Box(Modifier.size(120.dp).align(Alignment.TopStart).offset((-15).dp, (-90).dp).clip(CircleShape).background(Color.White.copy(alpha = 0.05f)))
+        Box(Modifier.size(150.dp).align(Alignment.BottomEnd).offset(50.dp, 50.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.06f)))
+
+        Column(Modifier.fillMaxSize().padding(18.dp), verticalArrangement = Arrangement.SpaceBetween) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text("زاد", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onPrimary)
+                Spacer(Modifier.weight(1f))
+                Box(
+                    Modifier.size(width = 34.dp, height = 24.dp)
+                        .clip(RoundedCornerShape(5.dp))
+                        .background(MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.35f))
+                )
+            }
+            Column {
+                Text("صافي الوضع", fontSize = 12.sp, color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f))
+                MoneyText(
+                    vm.totalAssets() - vm.totalLiabilities(), hidden,
+                    fontSize = 28, fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.onPrimary,
+                )
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (photo != null) {
+                    Image(
+                        bitmap = photo, contentDescription = "صورتك",
+                        modifier = Modifier.size(46.dp).clip(CircleShape).border(2.dp, MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f), CircleShape),
+                        contentScale = ContentScale.Crop,
+                    )
+                } else {
+                    Box(
+                        Modifier.size(46.dp).clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.2f))
+                            .border(2.dp, MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.5f), CircleShape),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(name.firstOrNull()?.toString() ?: "ز", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimary)
+                    }
+                }
+                Spacer(Modifier.width(10.dp))
+                Column {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(name, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimary)
+                        if (special) {
+                            Spacer(Modifier.width(4.dp))
+                            AdBadge(Modifier.size(18.dp))
+                        }
+                    }
+                    Text(message, fontSize = 11.sp, color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f), maxLines = 2)
+                }
+            }
+        }
     }
 }
