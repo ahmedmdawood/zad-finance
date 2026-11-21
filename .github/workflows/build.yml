@@ -5,6 +5,10 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+concurrency:
+  group: zad-main-release
+  cancel-in-progress: true
+
 permissions:
   contents: write
 
@@ -26,16 +30,28 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Build release APK
-        run: gradle assembleRelease --no-daemon --stacktrace
+      - name: Build and test
+        run: gradle testDebugUnitTest assembleRelease --no-daemon --stacktrace
+
+      - name: Save test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v1.6-test-evidence
+          path: |
+            app/build/test-evidence/
+            app/build/reports/tests/
+            app/build/test-results/
+
 
       - name: Rename APK
-        run: cp app/build/outputs/apk/release/app-release.apk zad-v1.5.3.apk
+        run: cp app/build/outputs/apk/release/app-release.apk zad-v1.6.apk
 
       - name: Publish to Release
+        if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, 'Release ZAD v1.6')
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.5.3
-          name: ZAD v1.5.3
-          body: "ZAD v1.5.3 - theme switch animation: light beam sweeps in from the screen corner carrying the new mode, per his instruction. Created with care by ahmed dawood"
-          files: zad-v1.5.3.apk
+          tag_name: v1.6
+          name: ZAD v1.6
+          body: "ZAD v1.6: overspend confirmation, photo refresh fix, CSV/PDF export fix, full password-protected transaction log, account editing and deletion with preserved history. Created with care by ahmed dawood"
+          files: zad-v1.6.apk
