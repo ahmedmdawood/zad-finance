@@ -20,8 +20,8 @@ android {
         applicationId = "dev.ahmeddawood.zadfinance"
         minSdk = 26
         targetSdk = 35
-        versionCode = 9
-        versionName = "1.5.2"
+        versionCode = 10
+        versionName = "1.5.3"
     }
 
     buildTypes {
