@@ -86,4 +86,16 @@ class V16Test {
         compose.onNodeWithText("حذف").assertExists()
         compose.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, evidence("full-log.png").outputStream())
     }
+    @Test fun settingsGroupsStartClosedAndOpenOnTap() {
+        val vm = MainViewModel(app)
+        compose.setContent { MaterialTheme { SettingsTab(vm) } }
+        compose.onNodeWithText("الحساب").assertExists()
+        compose.onNodeWithText("حفظ الاسم").assertDoesNotExist()
+        compose.onNodeWithText("الحساب").performClick()
+        compose.onNodeWithText("حفظ الاسم").assertExists()
+        compose.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, evidence("settings-account.png").outputStream())
+        compose.onNodeWithText("الحساب").performClick()
+        compose.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, evidence("settings-closed.png").outputStream())
+    }
+
 }
