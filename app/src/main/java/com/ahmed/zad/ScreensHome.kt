@@ -412,7 +412,7 @@ fun SalaryCard(vm: MainViewModel, salaryExpr: String, hidden: Boolean) {
 fun TransactionRow(vm: MainViewModel, tx: TransactionEntity, accounts: List<AccountEntity>, hidden: Boolean, readOnly: Boolean = false) {
     var confirmDelete by remember { mutableStateOf(false) }
     val accountName = accounts.firstOrNull { it.id == tx.accountId }?.name ?: "حساب محذوف"
-    val toName = tx.toAccountId?.let { id -> accounts.firstOrNull { it.id == id }?.name }
+    val toName = tx.toAccountId?.let { id -> accounts.firstOrNull { it.id == id }?.name ?: "حساب محذوف" }
     val (label, sign, color) = when (tx.type) {
         "INCOME" -> Triple("دخل", "+", IncomeGreen)
         "EXPENSE" -> Triple("مصروف", "-", ExpenseRed)
