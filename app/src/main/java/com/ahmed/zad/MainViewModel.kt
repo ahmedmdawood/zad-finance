@@ -220,11 +220,24 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun saveUserPhoto(stream: java.io.InputStream?) {
         if (stream == null) return
-        try {
-            getApplication<Application>().filesDir.resolve("user_photo.jpg").outputStream().use { out -> stream.copyTo(out) }
-            prefs.userPhotoSet = true
-            _userPhotoSet.value = true
-        } catch (e: Exception) { }
+        // Decode and shrink off the main thread: full-size camera photos are big
+        // enough to freeze or crash the app when decoded at full resolution.
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                val bytes = stream.readBytes()
+                val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+                var sample = 1
+                while (bounds.outWidth / (sample * 2) >= 512 && bounds.outHeight / (sample * 2) >= 512) sample *= 2
+                val opts = android.graphics.BitmapFactory.Options().apply { inSampleSize = sample }
+                val bmp = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, opts) ?: return@launch
+                getApplication<Application>().filesDir.resolve("user_photo.jpg").outputStream().use { out ->
+                    bmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 90, out)
+                }
+                prefs.userPhotoSet = true
+                _userPhotoSet.value = true
+            } catch (e: Exception) { }
+        }
     }
 
     fun clearUserPhoto() {
