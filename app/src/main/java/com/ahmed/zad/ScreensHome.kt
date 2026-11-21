@@ -25,6 +25,20 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.Canvas
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.material.icons.filled.Autorenew
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Visibility
@@ -300,19 +314,91 @@ fun TotalRow(
     }
 }
 
+/** Drawn quick-action icons (no emojis): simple stroke glyphs in brand colors. */
+@Composable
+fun QuickActionGlyph(label: String, color: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier.size(22.dp)) {
+        val w = size.width
+        val h = size.height
+        val stroke = Stroke(width = w * 0.09f, cap = StrokeCap.Round)
+        when (label) {
+            "دخل" -> { // arrow down into a tray
+                drawLine(color, Offset(w * 0.5f, h * 0.1f), Offset(w * 0.5f, h * 0.62f), stroke.width, cap = StrokeCap.Round)
+                val head = androidx.compose.ui.graphics.Path().apply {
+                    moveTo(w * 0.24f, h * 0.44f); lineTo(w * 0.5f, h * 0.68f); lineTo(w * 0.76f, h * 0.44f)
+                }
+                drawPath(head, color, style = stroke)
+                drawLine(color, Offset(w * 0.14f, h * 0.9f), Offset(w * 0.86f, h * 0.9f), stroke.width, cap = StrokeCap.Round)
+            }
+            "مصروف" -> { // arrow up out of a tray
+                drawLine(color, Offset(w * 0.5f, h * 0.68f), Offset(w * 0.5f, h * 0.16f), stroke.width, cap = StrokeCap.Round)
+                val head = androidx.compose.ui.graphics.Path().apply {
+                    moveTo(w * 0.24f, h * 0.34f); lineTo(w * 0.5f, h * 0.1f); lineTo(w * 0.76f, h * 0.34f)
+                }
+                drawPath(head, color, style = stroke)
+                drawLine(color, Offset(w * 0.14f, h * 0.9f), Offset(w * 0.86f, h * 0.9f), stroke.width, cap = StrokeCap.Round)
+            }
+            "تحويل" -> { // two opposing horizontal arrows
+                drawLine(color, Offset(w * 0.16f, h * 0.32f), Offset(w * 0.84f, h * 0.32f), stroke.width, cap = StrokeCap.Round)
+                val head1 = androidx.compose.ui.graphics.Path().apply {
+                    moveTo(w * 0.62f, h * 0.16f); lineTo(w * 0.86f, h * 0.32f); lineTo(w * 0.62f, h * 0.48f)
+                }
+                drawPath(head1, color, style = stroke)
+                drawLine(color, Offset(w * 0.84f, h * 0.68f), Offset(w * 0.16f, h * 0.68f), stroke.width, cap = StrokeCap.Round)
+                val head2 = androidx.compose.ui.graphics.Path().apply {
+                    moveTo(w * 0.38f, h * 0.52f); lineTo(w * 0.14f, h * 0.68f); lineTo(w * 0.38f, h * 0.84f)
+                }
+                drawPath(head2, color, style = stroke)
+            }
+            "التقارير" -> { // bar chart
+                drawLine(color, Offset(w * 0.2f, h * 0.55f), Offset(w * 0.2f, h * 0.84f), stroke.width * 1.5f, cap = StrokeCap.Round)
+                drawLine(color, Offset(w * 0.5f, h * 0.35f), Offset(w * 0.5f, h * 0.84f), stroke.width * 1.5f, cap = StrokeCap.Round)
+                drawLine(color, Offset(w * 0.8f, h * 0.16f), Offset(w * 0.8f, h * 0.84f), stroke.width * 1.5f, cap = StrokeCap.Round)
+            }
+            "التقويم" -> { // calendar page
+                drawRoundRect(
+                    color,
+                    topLeft = Offset(w * 0.14f, h * 0.2f),
+                    size = Size(w * 0.72f, h * 0.68f),
+                    cornerRadius = CornerRadius(w * 0.1f),
+                    style = stroke,
+                )
+                drawLine(color, Offset(w * 0.14f, h * 0.4f), Offset(w * 0.86f, h * 0.4f), stroke.width, cap = StrokeCap.Round)
+                drawLine(color, Offset(w * 0.32f, h * 0.1f), Offset(w * 0.32f, h * 0.26f), stroke.width, cap = StrokeCap.Round)
+                drawLine(color, Offset(w * 0.68f, h * 0.1f), Offset(w * 0.68f, h * 0.26f), stroke.width, cap = StrokeCap.Round)
+            }
+            else -> { // ملاحظات: note sheet with a line
+                drawRoundRect(
+                    color,
+                    topLeft = Offset(w * 0.2f, h * 0.1f),
+                    size = Size(w * 0.6f, h * 0.8f),
+                    cornerRadius = CornerRadius(w * 0.1f),
+                    style = stroke,
+                )
+                drawLine(color, Offset(w * 0.32f, h * 0.36f), Offset(w * 0.68f, h * 0.36f), stroke.width, cap = StrokeCap.Round)
+                drawLine(color, Offset(w * 0.32f, h * 0.54f), Offset(w * 0.68f, h * 0.54f), stroke.width, cap = StrokeCap.Round)
+            }
+        }
+    }
+}
+
 @Composable
 fun QuickAction(label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    val emoji = when (label) {
-        "دخل" -> "💵"
-        "مصروف" -> "💸"
-        "تحويل" -> "🔁"
-        "التقارير" -> "📊"
-        "التقويم" -> "📅"
-        "ملاحظات" -> "📝"
-        else -> "✨"
+    val tint = when (label) {
+        "دخل" -> IncomeGreen
+        "مصروف" -> ExpenseRed
+        else -> MaterialTheme.colorScheme.primary
     }
     PressScaleButton(onClick = onClick, modifier = modifier) {
-        Text("$emoji $label", fontSize = 14.sp)
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+            modifier = Modifier.padding(vertical = 4.dp),
+        ) {
+            QuickActionGlyph(label, tint)
+            Spacer(Modifier.height(4.dp))
+            Text(label, fontSize = 12.sp, maxLines = 1)
+        }
     }
 }
 
@@ -440,6 +526,49 @@ fun TransactionRow(vm: MainViewModel, tx: TransactionEntity, accounts: List<Acco
 }
 
 
+/** Shared hero-card chrome: theme gradient + decorative circles. */
+@Composable
+fun HeroCardFrame(modifier: Modifier = Modifier, content: @Composable androidx.compose.foundation.layout.BoxScope.() -> Unit) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(24.dp))
+            .background(
+                Brush.linearGradient(
+                    listOf(
+                        MaterialTheme.colorScheme.primary,
+                        MaterialTheme.colorScheme.tertiary,
+                        MaterialTheme.colorScheme.secondary,
+                    )
+                )
+            ),
+    ) {
+        Box(Modifier.size(180.dp).align(Alignment.TopStart).offset((-60).dp, (-60).dp).clip(CircleShape).background(Color.White.copy(alpha = 0.07f)))
+        Box(Modifier.size(120.dp).align(Alignment.TopStart).offset((-15).dp, (-90).dp).clip(CircleShape).background(Color.White.copy(alpha = 0.05f)))
+        Box(Modifier.size(150.dp).align(Alignment.BottomEnd).offset(50.dp, 50.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.06f)))
+        content()
+    }
+}
+
+/** Small round flip button shown on both faces of the hero card (visual top-left). */
+@Composable
+fun HeroFlipButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .size(34.dp)
+            .clip(CircleShape)
+            .background(Color.White.copy(alpha = 0.18f))
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            Icons.Default.Autorenew,
+            contentDescription = "اقلب البطاقة",
+            tint = MaterialTheme.colorScheme.onPrimary,
+            modifier = Modifier.size(18.dp),
+        )
+    }
+}
+
 @Composable
 fun BankHeroCard(vm: MainViewModel, name: String, special: Boolean, hidden: Boolean) {
     val context = LocalContext.current
@@ -447,6 +576,8 @@ fun BankHeroCard(vm: MainViewModel, name: String, special: Boolean, hidden: Bool
     val monthSpend by vm.monthSpendPiasters.collectAsState()
     val budgets by vm.budgets.collectAsState()
     val remainingBudget by vm.remainingMonthBudgetPiasters.collectAsState()
+    val accounts by vm.accounts.collectAsState()
+    val transactions by vm.transactions.collectAsState()
 
     val photo = remember(photoSet) {
         if (!photoSet) null else runCatching {
@@ -467,70 +598,141 @@ fun BankHeroCard(vm: MainViewModel, name: String, special: Boolean, hidden: Bool
         }
     }
 
+    var flipped by remember { mutableStateOf(false) }
+    var expanded by remember { mutableStateOf(false) }
+    val rotation by animateFloatAsState(
+        targetValue = if (flipped) 180f else 0f,
+        animationSpec = tween(600),
+        label = "heroFlip",
+    )
+    val density = androidx.compose.ui.platform.LocalDensity.current.density
+    val screenWidth = LocalConfiguration.current.screenWidthDp.dp
+    val collapsedHeight = (screenWidth - 32.dp) / 1.6f
+    val cardHeight by animateDpAsState(
+        targetValue = if (expanded) collapsedHeight + 340.dp else collapsedHeight,
+        animationSpec = tween(500),
+        label = "heroGrow",
+    )
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .aspectRatio(1.6f)
-            .clip(RoundedCornerShape(24.dp))
-            .background(
-                Brush.linearGradient(
-                    listOf(
-                        MaterialTheme.colorScheme.primary,
-                        MaterialTheme.colorScheme.tertiary,
-                        MaterialTheme.colorScheme.secondary,
-                    )
-                )
-            ),
+            .height(cardHeight)
+            .graphicsLayer {
+                rotationY = rotation
+                cameraDistance = 12f * density
+            },
     ) {
-        Box(Modifier.size(180.dp).align(Alignment.TopStart).offset((-60).dp, (-60).dp).clip(CircleShape).background(Color.White.copy(alpha = 0.07f)))
-        Box(Modifier.size(120.dp).align(Alignment.TopStart).offset((-15).dp, (-90).dp).clip(CircleShape).background(Color.White.copy(alpha = 0.05f)))
-        Box(Modifier.size(150.dp).align(Alignment.BottomEnd).offset(50.dp, 50.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.06f)))
-
-        Column(Modifier.fillMaxSize().padding(18.dp), verticalArrangement = Arrangement.SpaceBetween) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text("زاد", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onPrimary)
-                Spacer(Modifier.weight(1f))
-                Box(
-                    Modifier.size(width = 34.dp, height = 24.dp)
-                        .clip(RoundedCornerShape(5.dp))
-                        .background(MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.35f))
-                )
-            }
-            Column {
-                Text("صافي الوضع", fontSize = 12.sp, color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f))
-                MoneyText(
-                    vm.totalAssets() - vm.totalLiabilities(), hidden,
-                    fontSize = 28, fontWeight = FontWeight.ExtraBold,
-                    color = MaterialTheme.colorScheme.onPrimary,
-                )
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (photo != null) {
-                    Image(
-                        bitmap = photo, contentDescription = "صورتك",
-                        modifier = Modifier.size(46.dp).clip(CircleShape).border(2.dp, MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f), CircleShape),
-                        contentScale = ContentScale.Crop,
-                    )
-                } else {
-                    Box(
-                        Modifier.size(46.dp).clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.2f))
-                            .border(2.dp, MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.5f), CircleShape),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(name.firstOrNull()?.toString() ?: "ز", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimary)
+        if (rotation <= 90f) {
+            // FRONT: total picture, unchanged design.
+            HeroCardFrame(Modifier.fillMaxSize()) {
+                Column(Modifier.fillMaxSize().padding(18.dp), verticalArrangement = Arrangement.SpaceBetween) {
+                    Row(Modifier.fillMaxWidth().padding(end = 42.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("زاد", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onPrimary)
+                        Spacer(Modifier.weight(1f))
+                        Box(
+                            Modifier.size(width = 34.dp, height = 24.dp)
+                                .clip(RoundedCornerShape(5.dp))
+                                .background(MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.35f))
+                        )
                     }
-                }
-                Spacer(Modifier.width(10.dp))
-                Column {
+                    Column {
+                        Text("صافي الوضع", fontSize = 12.sp, color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f))
+                        MoneyText(
+                            vm.totalAssets() - vm.totalLiabilities(), hidden,
+                            fontSize = 28, fontWeight = FontWeight.ExtraBold,
+                            color = MaterialTheme.colorScheme.onPrimary,
+                        )
+                    }
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(name, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimary)
-                        if (special) {
-                            Spacer(Modifier.width(4.dp))
-                            AdBadge(Modifier.size(18.dp))
+                        if (photo != null) {
+                            Image(
+                                bitmap = photo, contentDescription = "صورتك",
+                                modifier = Modifier.size(46.dp).clip(CircleShape).border(2.dp, MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f), CircleShape),
+                                contentScale = ContentScale.Crop,
+                            )
+                        } else {
+                            Box(
+                                Modifier.size(46.dp).clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.2f))
+                                    .border(2.dp, MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.5f), CircleShape),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(name.firstOrNull()?.toString() ?: "ز", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimary)
+                            }
+                        }
+                        Spacer(Modifier.width(10.dp))
+                        Column {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(name, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimary)
+                                if (special) {
+                                    Spacer(Modifier.width(4.dp))
+                                    AdBadge(Modifier.size(18.dp))
+                                }
+                            }
+                            Text(message, fontSize = 11.sp, color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f), maxLines = 2)
                         }
                     }
-                    Text(message, fontSize = 11.sp, color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f), maxLines = 2)
+                }
+                HeroFlipButton(onClick = { flipped = true }, modifier = Modifier.align(Alignment.TopEnd).padding(10.dp))
+            }
+        } else {
+            // BACK: every account with its own balance.
+            Box(Modifier.fillMaxSize().graphicsLayer { rotationY = 180f }) {
+                HeroCardFrame(Modifier.fillMaxSize()) {
+                    Column(Modifier.fillMaxSize().padding(18.dp)) {
+                        Row(Modifier.fillMaxWidth().padding(end = 42.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text("حساباتك", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimary)
+                        }
+                        Spacer(Modifier.height(10.dp))
+                        val shown = if (expanded) accounts else accounts.take(3)
+                        val backScroll = rememberScrollState()
+                        Column(
+                            modifier = Modifier.weight(1f).let { m -> if (expanded) m.verticalScroll(backScroll) else m },
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            if (accounts.isEmpty()) {
+                                Text("لسه مفيش حسابات. ضيف أول حساب من تبويب الحسابات.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f))
+                            }
+                            shown.forEach { account ->
+                                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                    Column(Modifier.weight(1f)) {
+                                        Text(account.name, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onPrimary)
+                                        Text(
+                                            accountTypeLabel(account.type),
+                                            fontSize = 11.sp, color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.75f),
+                                        )
+                                    }
+                                    MoneyText(
+                                        accountBalance(account, transactions), hidden,
+                                        fontSize = 15, fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onPrimary,
+                                    )
+                                }
+                            }
+                        }
+                        if (accounts.size > 3) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { expanded = !expanded }.padding(vertical = 6.dp),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Icon(
+                                    if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onPrimary,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text(
+                                    if (expanded) "عرض أقل" else "عرض المزيد",
+                                    fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onPrimary,
+                                )
+                            }
+                        }
+                    }
+                    HeroFlipButton(onClick = { flipped = false; expanded = false }, modifier = Modifier.align(Alignment.TopEnd).padding(10.dp))
                 }
             }
         }
