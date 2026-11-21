@@ -69,11 +69,11 @@ class MainActivity : FragmentActivity() {
             val themeId by vm.themeId.collectAsState()
             val darkOverride by vm.darkOverride.collectAsState()
 
-            // Theme transition: a circle in the new theme's background color
-            // grows from the light/dark switch until it covers the screen, the
-            // theme swaps beneath it, then the cover fades out. One composition
-            // of the app plus a single drawn circle, so it stays light on weak
-            // hardware (matches his reference video: reveal spreads from toggle).
+            // Theme transition: a beam of the new theme's background color
+            // sweeps in from the top-right corner of the screen with a glowing
+            // leading edge until it covers everything, the theme swaps beneath
+            // it, then the cover fades out. One composition of the app plus a
+            // single gradient rect per frame, so it stays light on weak hardware.
             var baseTheme by remember { mutableStateOf(themeId) }
             var baseDark by remember { mutableIntStateOf(darkOverride) }
             val reveal = remember { Animatable(0f) }
@@ -87,7 +87,7 @@ class MainActivity : FragmentActivity() {
                 revealing = true
                 reveal.snapTo(0f)
                 coverAlpha.snapTo(1f)
-                reveal.animateTo(1f, tween(if (slow) 700 else 500, easing = FastOutSlowInEasing))
+                reveal.animateTo(1f, tween(if (slow) 800 else 600, easing = FastOutSlowInEasing))
                 baseTheme = themeId
                 baseDark = darkOverride
                 coverAlpha.animateTo(0f, tween(if (slow) 550 else 400, easing = FastOutSlowInEasing))
@@ -103,12 +103,24 @@ class MainActivity : FragmentActivity() {
                     androidx.compose.foundation.Canvas(
                         Modifier.fillMaxSize().graphicsLayer { alpha = coverAlpha.value }
                     ) {
-                        val o = if (ThemeReveal.origin != Offset.Unspecified) ThemeReveal.origin else center
-                        val maxR = kotlin.math.hypot(
-                            maxOf(o.x, size.width - o.x),
-                            maxOf(o.y, size.height - o.y),
+                        // Beam sweeping from the top-right corner to bottom-left:
+                        // solid new-mode color behind a glowing leading edge.
+                        val beam = 0.22f
+                        val p = reveal.value * (1f + beam)
+                        val edge = (p - beam).coerceIn(0f, 1f)
+                        val glow = (p - 0.045f).coerceIn(0f, 1f)
+                        val head = p.coerceAtMost(1f)
+                        drawRect(
+                            brush = androidx.compose.ui.graphics.Brush.linearGradient(
+                                0f to revealScheme.background,
+                                edge to revealScheme.background,
+                                glow to revealScheme.primary.copy(alpha = 0.55f),
+                                head to androidx.compose.ui.graphics.Color.Transparent,
+                                1f to androidx.compose.ui.graphics.Color.Transparent,
+                                start = androidx.compose.ui.geometry.Offset(size.width, 0f),
+                                end = androidx.compose.ui.geometry.Offset(0f, size.height),
+                            )
                         )
-                        drawCircle(revealScheme.background, radius = maxR * reveal.value, center = o)
                     }
                 }
             }
