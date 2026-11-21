@@ -30,28 +30,86 @@ jobs:
         with:
           gradle-version: '8.9'
 
+      - name: Restore permanent signing key
+        env:
+          ZAD_SIGNING_BUNDLE: ${{ secrets.ZAD_SIGNING_BUNDLE }}
+        run: |
+          python3 - <<'PYKEY'
+          import os, json, base64, pathlib
+          bundle = json.loads(os.environ["ZAD_SIGNING_BUNDLE"])
+          root = pathlib.Path(os.environ["RUNNER_TEMP"])
+          key = root / "zad-release.p12"
+          password = root / "zad-release-password"
+          key.write_bytes(base64.b64decode(bundle["keystore"]))
+          password.write_text(bundle["password"])
+          key.chmod(0o600)
+          password.chmod(0o600)
+          with open(os.environ["GITHUB_ENV"], "a") as env:
+              env.write("ZAD_KEYSTORE_FILE=" + str(key) + "\n")
+              env.write("ZAD_STOREPASS_FILE=" + str(password) + "\n")
+          PYKEY
+
       - name: Build and test
-        run: gradle testDebugUnitTest assembleRelease --no-daemon --stacktrace
+        run: gradle testDebugUnitTest assembleDebug assembleDebugAndroidTest assembleRelease --no-daemon --stacktrace
+
+      - name: Enable emulator acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Verify Android screens and native PDF
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 33
+          arch: x86_64
+          target: default
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: |
+            gradle connectedDebugAndroidTest --no-daemon --stacktrace
+
+      - name: Collect device evidence
+        if: always()
+        run: |
+          mkdir -p app/build/test-evidence/device
+          adb pull /sdcard/Android/data/dev.ahmeddawood.zadfinance/files/test-evidence/. app/build/test-evidence/device/ || true
+
+      - name: Verify permanent release signature
+        run: |
+          apk=app/build/outputs/apk/release/app-release.apk
+          build_tools=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1 | xargs dirname)
+          mkdir -p app/build/test-evidence
+          "$build_tools/apksigner" verify --verbose --print-certs "$apk" | tee app/build/test-evidence/signature.txt
+          grep -F '63f2ecee5fb4332a2520d8ff1018c44a91f1336c378779270762e4d027682279' app/build/test-evidence/signature.txt
+          "$build_tools/zipalign" -c -p 4 "$apk"
 
       - name: Save test evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: v1.6-test-evidence
+          name: v2.0.0-test-evidence
           path: |
             app/build/test-evidence/
             app/build/reports/tests/
             app/build/test-results/
+            app/build/reports/androidTests/
+            app/build/outputs/androidTest-results/
 
 
       - name: Rename APK
-        run: cp app/build/outputs/apk/release/app-release.apk zad-v1.6.apk
+        run: cp app/build/outputs/apk/release/app-release.apk zad-v2.0.0.apk
 
       - name: Publish to Release
-        if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, 'Release ZAD v1.6')
+        if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, 'Release ZAD v2.0.0')
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.6
-          name: ZAD v1.6
-          body: "ZAD v1.6: overspend confirmation, photo refresh fix, CSV/PDF export fix, full password-protected transaction log, account editing and deletion with preserved history. Created with care by ahmed dawood"
-          files: zad-v1.6.apk
+          tag_name: v2.0.0
+          name: ZAD v2.0.0
+          body: "ZAD v2.0.0: overspend confirmation, photo refresh fix, CSV/PDF export fix, full password-protected transaction log, account editing and deletion with preserved history. Created with care by ahmed dawood"
+          files: zad-v2.0.0.apk
+
+
+      - name: Remove temporary signing files
+        if: always()
+        run: rm -f "$RUNNER_TEMP/zad-release.p12" "$RUNNER_TEMP/zad-release-password"
