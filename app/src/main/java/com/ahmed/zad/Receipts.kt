@@ -4,7 +4,6 @@ import android.content.Context
 import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
@@ -33,27 +32,39 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.io.File
 
-/** Copies a picked photo into private app storage and returns its path. */
+/** Copies a picked photo into private app storage (downscaled) and returns its path. */
 fun saveReceipt(context: Context, source: Uri): String {
+    val bytes = context.contentResolver.openInputStream(source)?.use { it.readBytes() }
+        ?: throw IllegalStateException("cannot read photo")
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+    var sample = 1
+    while (bounds.outWidth / (sample * 2) >= 1280 && bounds.outHeight / (sample * 2) >= 1280) sample *= 2
+    val opts = BitmapFactory.Options().apply { inSampleSize = sample }
+    val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, opts)
     val dir = File(context.filesDir, "receipts").apply { mkdirs() }
     val target = File(dir, "receipt_${System.currentTimeMillis()}.jpg")
-    context.contentResolver.openInputStream(source)?.use { input ->
-        target.outputStream().use { input.copyTo(it) }
-    } ?: throw IllegalStateException("cannot read photo")
+    if (bmp != null) {
+        target.outputStream().use { bmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 88, it) }
+    } else {
+        target.writeBytes(bytes)
+    }
     return target.absolutePath
 }
 
-/** Photo picker row for the expense form. */
+/** Photo picker row for the expense form. Uses GetContent so it works on devices
+ *  without the Google photo picker. */
 @Composable
 fun ReceiptPicker(receiptPath: String?, onPicked: (String) -> Unit) {
     val context = LocalContext.current
     var error by remember { mutableStateOf(false) }
     val launcher = rememberLauncherForActivityResult(
-        ActivityResultContracts.PickVisualMedia()
+        ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         if (uri != null) {
             try {
                 onPicked(saveReceipt(context, uri))
+                error = false
             } catch (e: Exception) {
                 error = true
             }
@@ -62,9 +73,7 @@ fun ReceiptPicker(receiptPath: String?, onPicked: (String) -> Unit) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         OutlinedButton(onClick = {
             try {
-                launcher.launch(
-                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                )
+                launcher.launch("image/*")
             } catch (e: Exception) {
                 error = true
             }
