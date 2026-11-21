@@ -293,7 +293,9 @@ fun TrashScreen(vm: MainViewModel) {
                 }
             } else {
                 items(trash, key = { it.id }) { tx ->
-                    Card(
+                    if (tx.hidden) {
+                        HiddenTransactionCard()
+                    } else Card(
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                         modifier = Modifier.fillMaxWidth(),
                     ) {
