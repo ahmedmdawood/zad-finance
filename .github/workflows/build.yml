@@ -81,7 +81,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: v2.0.0-test-evidence
+          name: v2.0.1-test-evidence
           path: |
             app/build/test-evidence/
             app/build/reports/tests/
@@ -91,16 +91,16 @@ jobs:
 
 
       - name: Rename APK
-        run: cp app/build/outputs/apk/release/app-release.apk zad-v2.0.0.apk
+        run: cp app/build/outputs/apk/release/app-release.apk zad-v2.0.1.apk
 
       - name: Publish to Release
-        if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, 'Release ZAD v2.0.0')
+        if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, 'Release ZAD v2.0.1')
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v2.0.0
-          name: ZAD v2.0.0
-          body: "ZAD v2.0.0: overspend confirmation, photo refresh fix, CSV/PDF export fix, full password-protected transaction log, account editing and deletion with preserved history. Created with care by ahmed dawood"
-          files: zad-v2.0.0.apk
+          tag_name: v2.0.1
+          name: ZAD v2.0.1
+          body: "ZAD v2.0.1: pinned notes strip on the home card, plus v2.0.0 - overspend confirmation, photo refresh fix, CSV/PDF export fix, full password-protected transaction log, account editing and deletion with preserved history. Created with care by ahmed dawood"
+          files: zad-v2.0.1.apk
 
 
       - name: Remove temporary signing files
