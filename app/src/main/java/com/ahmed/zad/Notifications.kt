@@ -48,11 +48,12 @@ object ZadNotifications {
             }
             if (androidx.core.app.NotificationManagerCompat.from(context).areNotificationsEnabled().not()) return
         val intent = Intent(context, MainActivity::class.java).apply {
+            action = "com.ahmed.zad.OPEN_QUICK_ADD"
             putExtra(EXTRA_OPEN_ADD_EXPENSE, true)
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
         val pending = PendingIntent.getActivity(
-            context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            context, 10, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         val notification = NotificationCompat.Builder(context, CHANNEL_QUICK_ADD)
             .setSmallIcon(android.R.drawable.ic_input_add)
@@ -148,9 +149,9 @@ class ZadAlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         ZadNotifications.createChannels(context)
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        val openApp = PendingIntent.getActivity(
-            context, 0,
-            Intent(context, MainActivity::class.java),
+        fun openAppIntent(requestCode: Int, actionName: String) = PendingIntent.getActivity(
+            context, requestCode,
+            Intent(context, MainActivity::class.java).setAction(actionName),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         when (intent.action) {
@@ -159,7 +160,7 @@ class ZadAlarmReceiver : BroadcastReceiver() {
                     .setSmallIcon(android.R.drawable.ic_popup_reminder)
                     .setContentTitle("زاد")
                     .setContentText("متنساش تسجل مصاريف النهاردة")
-                    .setContentIntent(openApp)
+                    .setContentIntent(openAppIntent(20, "com.ahmed.zad.OPEN_REMINDER"))
                     .setAutoCancel(true)
                     .build()
                 try { manager.notify(200, notification) } catch (e: Exception) { }
@@ -171,7 +172,7 @@ class ZadAlarmReceiver : BroadcastReceiver() {
                     .setContentTitle("ملخص الأسبوع")
                     .setContentText(summary)
                     .setStyle(NotificationCompat.BigTextStyle().bigText(summary))
-                    .setContentIntent(openApp)
+                    .setContentIntent(openAppIntent(30, "com.ahmed.zad.OPEN_DIGEST"))
                     .setAutoCancel(true)
                     .build()
                 try { manager.notify(300, notification) } catch (e: Exception) { }
