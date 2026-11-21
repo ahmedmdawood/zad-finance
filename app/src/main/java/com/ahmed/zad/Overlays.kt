@@ -2,6 +2,8 @@ package com.ahmed.zad
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -10,12 +12,14 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -218,6 +222,7 @@ fun CardPaymentScreen(vm: MainViewModel, accountId: Long) {
 }
 
 @Composable
+@OptIn(ExperimentalLayoutApi::class)
 fun AddAccountScreen(vm: MainViewModel) {
     var name by remember { mutableStateOf("") }
     var type by remember { mutableStateOf("CASH") }
@@ -230,15 +235,41 @@ fun AddAccountScreen(vm: MainViewModel) {
             label = { Text("اسم الحساب") }, singleLine = true,
             modifier = Modifier.fillMaxWidth(),
         )
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("CASH" to "نقدي", "BANK" to "بنكي", "EWALLET" to "محفظة إلكترونية").forEach { (id, label) ->
+        val customTypes by vm.customAccountTypes.collectAsState()
+        var showTypeDialog by remember { mutableStateOf(false) }
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf("CASH" to "نقدي", "BANK" to "بنكي", "EWALLET" to "محفظة إلكترونية", "CREDIT" to "ائتمانية").forEach { (id, label) ->
                 FilterChip(selected = type == id, onClick = { type = id }, label = { Text(label, fontSize = 13.sp) })
             }
+            customTypes.forEach { ct ->
+                FilterChip(selected = type == "CUSTOM:$ct", onClick = { type = "CUSTOM:$ct" }, label = { Text(ct, fontSize = 13.sp) })
+            }
+            FilterChip(selected = false, onClick = { showTypeDialog = true }, label = { Text("+ نوع جديد", fontSize = 13.sp) })
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("CREDIT" to "ائتمانية", "OTHER" to "أخرى").forEach { (id, label) ->
-                FilterChip(selected = type == id, onClick = { type = id }, label = { Text(label, fontSize = 13.sp) })
-            }
+        if (showTypeDialog) {
+            var typeName by remember { mutableStateOf("") }
+            AlertDialog(
+                onDismissRequest = { showTypeDialog = false },
+                title = { Text("نوع حساب جديد") },
+                text = {
+                    OutlinedTextField(
+                        value = typeName, onValueChange = { typeName = it },
+                        label = { Text("اسم النوع (مثال: فودافون كاش)") }, singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        val n = typeName.trim()
+                        if (n.isNotEmpty()) {
+                            vm.addCustomAccountType(n)
+                            type = "CUSTOM:$n"
+                        }
+                        showTypeDialog = false
+                    }) { Text("إضافة") }
+                },
+                dismissButton = { TextButton(onClick = { showTypeDialog = false }) { Text("إلغاء") } },
+            )
         }
         if (type == "CREDIT") {
             CalculatorAmountInput(value = limit, onValueChange = { limit = it }, label = "الحد الائتماني")
