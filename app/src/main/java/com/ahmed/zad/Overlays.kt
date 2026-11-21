@@ -74,23 +74,30 @@ private fun validatePositive(expression: String): Pair<Long, String?> {
 }
 
 @Composable
-fun AddTransactionScreen(vm: MainViewModel, type: String) {
+fun AddTransactionScreen(vm: MainViewModel, type: String, editId: Long? = null) {
     val accounts by vm.accounts.collectAsState()
+    val transactions by vm.transactions.collectAsState()
     val plans by vm.plans.collectAsState()
-    val liquid = accounts.filter { it.type != "CREDIT" }
+    val liquid = accounts.filter { it.type != "CREDIT" || (editId != null && it.id == editingAccountIdForForm(transactions, editId)) }
 
-    var expression by remember { mutableStateOf("") }
-    var fromAccount by remember { mutableStateOf<Long?>(null) }
-    var toAccount by remember { mutableStateOf<Long?>(null) }
-    var planId by remember { mutableStateOf<Long?>(null) }
-    var category by remember { mutableStateOf("أخرى") }
-    var receiptPath by remember { mutableStateOf<String?>(null) }
-    var note by remember { mutableStateOf("") }
+    val editing = transactions.firstOrNull { it.id == editId }
+    var expression by remember(editId) { mutableStateOf(editing?.let { it.amountExpression ?: (it.amountPiasters / 100.0).toString() } ?: "") }
+    var fromAccount by remember(editId) { mutableStateOf(editing?.accountId) }
+    var toAccount by remember(editId) { mutableStateOf(editing?.toAccountId) }
+    var planId by remember(editId) { mutableStateOf(editing?.planId) }
+    var category by remember(editId) { mutableStateOf(editing?.category ?: "أخرى") }
+    var receiptPath by remember(editId) { mutableStateOf(editing?.receiptPath) }
+    var note by remember(editId) { mutableStateOf(editing?.note ?: "") }
+    fun saveEntry() {
+        if (editId == null) vm.addTransaction(type, expression, fromAccount!!, toAccount, note.trim(), planId, category, receiptPath)
+        else vm.updateTransaction(editId, type, expression, fromAccount!!, toAccount, note.trim(), planId, category, receiptPath)
+    }
     var error by remember { mutableStateOf<String?>(null) }
+    var overspend by remember { mutableStateOf(false) }
     val voiceEnabled by vm.voiceEnabled.collectAsState()
     val budgets by vm.budgets.collectAsState()
 
-    val title = when (type) {
+    val title = if (editId != null) "تعديل العملية" else when (type) {
         "INCOME" -> "تسجيل دخل"
         "EXPENSE" -> "تسجيل مصروف"
         else -> "تحويل بين حساباتك"
@@ -153,15 +160,41 @@ fun AddTransactionScreen(vm: MainViewModel, type: String) {
                     else -> null
                 }
                 if (error == null) {
-                    vm.addTransaction(
-                        type, expression, fromAccount!!, toAccount, note.trim(), planId, category, receiptPath
-                    )
+                    val amount = if (type == "EXPENSE") try { evaluateToPiasters(expression).first } catch (e: EvalException) { 0L } else 0L
+                    val available = liquid.sumOf { accountBalance(it, transactions.filter { tx -> tx.id != editId }) }
+                    if (shouldWarnOverspend(type, amount, available)) {
+                        overspend = true
+                    } else {
+                        saveEntry()
+                    }
                 }
             },
             modifier = Modifier.fillMaxWidth(),
         ) { Text("حفظ") }
         if (liquid.isEmpty()) {
             Text("ضيف حساب الأول من تبويب الحسابات.", color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
+        }
+        if (overspend) {
+            val amount = try { evaluateToPiasters(expression).first } catch (e: EvalException) { 0L }
+            val available = liquid.sumOf { accountBalance(it, transactions.filter { tx -> tx.id != editId }) }
+            AlertDialog(
+                onDismissRequest = { overspend = false },
+                title = { Text("المبلغ أكبر من اللي معاك") },
+                text = {
+                    Text(
+                        "المصروف ده (${formatMoney(amount)}) أكتر من كل فلوسك المتاحة (${formatMoney(available)}). " +
+                            "لو متأكد من المبلغ كمل ورصيدك هيبقى بالسالب، ولو غلطت ارجع عدّل المبلغ.",
+                        fontSize = 14.sp,
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        overspend = false
+                        saveEntry()
+                    }) { Text("كمل بالسالب") }
+                },
+                dismissButton = { TextButton(onClick = { overspend = false }) { Text("عدّل المبلغ") } },
+            )
         }
     }
 }
@@ -223,13 +256,16 @@ fun CardPaymentScreen(vm: MainViewModel, accountId: Long) {
 
 @Composable
 @OptIn(ExperimentalLayoutApi::class)
-fun AddAccountScreen(vm: MainViewModel) {
-    var name by remember { mutableStateOf("") }
-    var type by remember { mutableStateOf("CASH") }
-    var opening by remember { mutableStateOf("") }
-    var limit by remember { mutableStateOf("") }
+fun AddAccountScreen(vm: MainViewModel, editId: Long? = null) {
+    val accounts by vm.accounts.collectAsState()
+    val editing = accounts.firstOrNull { it.id == editId }
+    var name by remember(editId) { mutableStateOf(editing?.name ?: "") }
+    var type by remember(editId) { mutableStateOf(editing?.type ?: "CASH") }
+    var opening by remember(editId) { mutableStateOf(editing?.openingExpression ?: editing?.let { (it.openingPiasters / 100.0).toString() } ?: "") }
+    var limit by remember(editId) { mutableStateOf(editing?.creditLimitExpression ?: editing?.creditLimitPiasters?.let { (it / 100.0).toString() } ?: "") }
     var error by remember { mutableStateOf<String?>(null) }
-    FormScaffold("إضافة حساب", onClose = { vm.closeOverlay() }) {
+    FormScaffold(if (editId == null) "إضافة حساب" else "تعديل الحساب", onClose = { vm.closeOverlay() }) {
+        if (editId != null) Text("عدّل الرصيد الافتتاحي لتصحيح المبلغ الأصلي. العمليات المسجلة هتفضل زي ما هي.", fontSize = 12.sp)
         OutlinedTextField(
             value = name, onValueChange = { name = it },
             label = { Text("اسم الحساب") }, singleLine = true,
@@ -287,7 +323,8 @@ fun AddAccountScreen(vm: MainViewModel) {
                     else -> try { evaluateToPiasters(limit); null } catch (e: EvalException) { e.message }
                 }
                 if (error == null) {
-                    vm.addAccount(name.trim(), type, if (type == "CREDIT") "0" else opening, limit.ifBlank { null })
+                    if (editId == null) vm.addAccount(name.trim(), type, if (type == "CREDIT") "0" else opening, limit.ifBlank { null })
+                    else vm.updateAccount(editId, name.trim(), type, if (type == "CREDIT") "0" else opening, limit.ifBlank { null })
                 }
             },
             modifier = Modifier.fillMaxWidth(),
@@ -369,3 +406,5 @@ fun PayDebtScreen(vm: MainViewModel, debtId: Long) {
         ) { Text("تسجيل الدفعة") }
     }
 }
+
+private fun editingAccountIdForForm(transactions: List<TransactionEntity>, editId: Long): Long? = transactions.firstOrNull { it.id == editId }?.accountId
