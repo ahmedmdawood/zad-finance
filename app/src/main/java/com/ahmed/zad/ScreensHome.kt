@@ -60,7 +60,8 @@ import java.util.Locale
 @Composable
 fun OnboardingScreen(vm: MainViewModel) {
     var name by remember { mutableStateOf("") }
-    var theme by remember { mutableStateOf("gold") }
+    val theme by vm.themeId.collectAsState()
+    val darkOverride by vm.darkOverride.collectAsState()
     Box(Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp).padding(bottom = 96.dp),
@@ -80,7 +81,7 @@ fun OnboardingScreen(vm: MainViewModel) {
             Spacer(Modifier.height(20.dp))
             Text("اختار الثيم", fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(8.dp))
-            ThemePicker(selected = theme, isDark = false, onSelect = { id, _ -> theme = id })
+            ThemePicker(selected = theme, isDark = darkOverride == 1, onSelect = { id, d -> vm.setTheme(id); vm.setDarkOverride(if (d) 1 else 0) })
             Spacer(Modifier.height(24.dp))
         }
         PressScaleButton(
