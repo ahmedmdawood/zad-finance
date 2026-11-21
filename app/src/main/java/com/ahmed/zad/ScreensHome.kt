@@ -21,6 +21,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -58,31 +60,33 @@ import java.util.Locale
 @Composable
 fun OnboardingScreen(vm: MainViewModel) {
     var name by remember { mutableStateOf("") }
-    var theme by remember { mutableStateOf("coffee_dark") }
-    Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
-        verticalArrangement = Arrangement.Center,
-    ) {
-        Text("زاد", fontSize = 48.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-        Text("إدارة أموالك، بطريقتك.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 16.sp)
-        Spacer(Modifier.height(28.dp))
-        Text("تحب أناديك بإيه؟", fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
-        Spacer(Modifier.height(8.dp))
-        OutlinedTextField(
-            value = name,
-            onValueChange = { name = it },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        Spacer(Modifier.height(20.dp))
-        Text("اختار الثيم", fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
-        Spacer(Modifier.height(8.dp))
-        ThemePicker(selected = theme, isDark = false, onSelect = { id, _ -> theme = id })
-        Spacer(Modifier.height(24.dp))
+    var theme by remember { mutableStateOf("gold") }
+    Box(Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp).padding(bottom = 96.dp),
+        ) {
+            Spacer(Modifier.height(40.dp))
+            Text("زاد", fontSize = 48.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+            Text("إدارة أموالك، بطريقتك.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 16.sp)
+            Spacer(Modifier.height(28.dp))
+            Text("تحب أناديك بإيه؟", fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(8.dp))
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(Modifier.height(20.dp))
+            Text("اختار الثيم", fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(8.dp))
+            ThemePicker(selected = theme, isDark = false, onSelect = { id, _ -> theme = id })
+            Spacer(Modifier.height(24.dp))
+        }
         PressScaleButton(
             onClick = { if (name.isNotBlank()) vm.completeOnboarding(name.trim(), theme) },
             enabled = name.isNotBlank(),
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(24.dp),
         ) { Text("يلا نبدأ", fontSize = 16.sp) }
     }
 }
