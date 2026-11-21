@@ -179,6 +179,27 @@ fun SettingsTab(vm: MainViewModel) {
         Spacer(Modifier.height(4.dp))
         Text("الإعدادات", fontSize = 20.sp, fontWeight = FontWeight.Bold)
 
+        val crashFile = remember { java.io.File(context.filesDir, "last_crash.txt") }
+        var crashText by remember { mutableStateOf(if (crashFile.exists()) runCatching { crashFile.readText() }.getOrDefault("") else "") }
+        if (crashText.isNotBlank()) {
+            val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer), modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("آخر عطل حصل في التطبيق", fontWeight = FontWeight.SemiBold)
+                    Text("لو التطبيق قفل لوحده، انسخ التقرير ده وابعته عشان نحدد المشكلة بالظبط.", fontSize = 12.sp)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = {
+                            clipboard.setText(androidx.compose.ui.text.AnnotatedString(crashText))
+                        }) { Text("نسخ التقرير", fontSize = 12.sp) }
+                        OutlinedButton(onClick = {
+                            runCatching { crashFile.delete() }
+                            crashText = ""
+                        }) { Text("مسح", fontSize = 12.sp) }
+                    }
+                }
+            }
+        }
+
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("الاسم", fontWeight = FontWeight.SemiBold)
