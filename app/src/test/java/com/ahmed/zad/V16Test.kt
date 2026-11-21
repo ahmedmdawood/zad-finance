@@ -26,7 +26,7 @@ import org.robolectric.annotation.GraphicsMode
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class V16Test {
     @get:Rule val compose = createComposeRule()
-    private val app get() = RuntimeEnvironment.getApplication<android.app.Application>()
+    private val app get() = RuntimeEnvironment.getApplication()
     private fun expense(amount: Long = 12345L) = TransactionEntity(type = "EXPENSE", amountPiasters = amount, accountId = 1L, note = "اختبار التصدير")
     private fun evidence(name: String) = File("build/test-evidence/$name").also { it.parentFile.mkdirs() }
     @After fun closeDb() { ZadDatabase.closeInstance() }
@@ -96,6 +96,40 @@ class V16Test {
         compose.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, evidence("settings-account.png").outputStream())
         compose.onNodeWithText("الحساب").performClick()
         compose.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, evidence("settings-closed.png").outputStream())
+    }
+
+    @Test fun accountDeleteRetainsHistoryAndOtherTransferBalance() {
+        val dao = ZadDatabase.get(app).dao()
+        runBlocking {
+            dao.insertAccount(AccountEntity(id = 21, name = "حساب قديم", type = "CASH", openingPiasters = 600000))
+            val bank = AccountEntity(id = 22, name = "البنك", type = "BANK", openingPiasters = 0)
+            dao.insertAccount(bank)
+            val txId = dao.insertTransaction(TransactionEntity(type = "TRANSFER", amountPiasters = 100000, accountId = 21, toAccountId = 22))
+            dao.deleteAccount(21)
+            val saved = dao.transactionById(txId)
+            assertNotNull(saved)
+            assertEquals(100000L, accountBalance(bank, listOf(saved!!)))
+        }
+    }
+    @Test fun overspendDialogCanCorrectOrContinue() {
+        val dao = ZadDatabase.get(app).dao()
+        runBlocking { dao.insertAccount(AccountEntity(id = 31, name = "محفظة اختبار", type = "CASH", openingPiasters = 10000)) }
+        val vm = MainViewModel(app)
+        compose.setContent { MaterialTheme { AddTransactionScreen(vm, "EXPENSE") } }
+        compose.waitUntil(10000) { compose.onAllNodesWithText("محفظة اختبار (نقدي)").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("المبلغ").performTextInput("150")
+        compose.onNodeWithText("محفظة اختبار (نقدي)").performScrollTo().performClick()
+        compose.onNodeWithText("حفظ").performScrollTo().performClick()
+        compose.onNodeWithText("المبلغ أكبر من اللي معاك").assertExists()
+        val roots = compose.onAllNodes(isRoot())
+        roots[roots.fetchSemanticsNodes().lastIndex].captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, evidence("overspend-dialog.png").outputStream())
+        compose.onNodeWithText("عدّل المبلغ").performClick()
+        compose.onNodeWithText("المبلغ أكبر من اللي معاك").assertDoesNotExist()
+        compose.onNodeWithText("حفظ").performScrollTo().performClick()
+        compose.onNodeWithText("كمل بالسالب").performClick()
+        compose.waitUntil(10000) { vm.transactions.value.any { it.accountId == 31L } }
+        val account = vm.accounts.value.first { it.id == 31L }
+        assertEquals(-5000L, accountBalance(account, vm.transactions.value))
     }
 
 }
