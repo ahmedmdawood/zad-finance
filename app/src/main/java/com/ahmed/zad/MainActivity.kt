@@ -69,38 +69,47 @@ class MainActivity : FragmentActivity() {
             val themeId by vm.themeId.collectAsState()
             val darkOverride by vm.darkOverride.collectAsState()
 
-            // Theme transition: a soft veil in the new theme's colors fades in,
-            // the theme swaps beneath it, and the veil fades out. The app is
-            // composed once at all times, so it stays smooth on weak hardware.
+            // Theme transition: a circle in the new theme's background color
+            // grows from the light/dark switch until it covers the screen, the
+            // theme swaps beneath it, then the cover fades out. One composition
+            // of the app plus a single drawn circle, so it stays light on weak
+            // hardware (matches his reference video: reveal spreads from toggle).
             var baseTheme by remember { mutableStateOf(themeId) }
             var baseDark by remember { mutableIntStateOf(darkOverride) }
-            val veil = remember { Animatable(0f) }
+            val reveal = remember { Animatable(0f) }
+            val coverAlpha = remember { Animatable(1f) }
+            var revealing by remember { mutableStateOf(false) }
             val currentName by vm.userName.collectAsState()
 
             LaunchedEffect(themeId, darkOverride) {
                 if (themeId == baseTheme && darkOverride == baseDark) return@LaunchedEffect
                 val slow = currentName.isEmpty()
-                veil.animateTo(1f, tween(if (slow) 750 else 550, easing = FastOutSlowInEasing))
+                revealing = true
+                reveal.snapTo(0f)
+                coverAlpha.snapTo(1f)
+                reveal.animateTo(1f, tween(if (slow) 700 else 500, easing = FastOutSlowInEasing))
                 baseTheme = themeId
                 baseDark = darkOverride
-                veil.animateTo(0f, tween(if (slow) 950 else 700, easing = FastOutSlowInEasing))
+                coverAlpha.animateTo(0f, tween(if (slow) 550 else 400, easing = FastOutSlowInEasing))
+                revealing = false
             }
 
             Box(Modifier.fillMaxSize()) {
                 ZadAppTheme(baseTheme, baseDark) {
                     ZadAppContent(vm)
                 }
-                if (veil.value > 0f) {
-                    val veilScheme = themeScheme(themeId, darkOverride)
-                    Box(
-                        Modifier.fillMaxSize()
-                            .graphicsLayer { alpha = veil.value }
-                            .background(
-                                androidx.compose.ui.graphics.Brush.verticalGradient(
-                                    listOf(veilScheme.primary, veilScheme.secondary)
-                                )
-                            )
-                    )
+                if (revealing) {
+                    val revealScheme = themeScheme(themeId, darkOverride)
+                    androidx.compose.foundation.Canvas(
+                        Modifier.fillMaxSize().graphicsLayer { alpha = coverAlpha.value }
+                    ) {
+                        val o = if (ThemeReveal.origin.isSpecified) ThemeReveal.origin else center
+                        val maxR = kotlin.math.hypot(
+                            maxOf(o.x, size.width - o.x),
+                            maxOf(o.y, size.height - o.y),
+                        )
+                        drawCircle(revealScheme.background, radius = maxR * reveal.value, center = o)
+                    }
                 }
             }
         }
