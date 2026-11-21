@@ -41,6 +41,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
@@ -59,56 +60,38 @@ class MainActivity : FragmentActivity() {
             val themeId by vm.themeId.collectAsState()
             val darkOverride by vm.darkOverride.collectAsState()
 
-            // Ink-blot reveal for theme and light/dark switches: the new look is
-            // revealed inside a circle expanding from the toggle. Cheap: a second
-            // composition clipped to a circle, no shaders or bitmaps.
+            // Theme transition: a soft veil in the new theme's colors fades in,
+            // the theme swaps beneath it, and the veil fades out. The app is
+            // composed once at all times, so it stays smooth on weak hardware.
             var baseTheme by remember { mutableStateOf(themeId) }
             var baseDark by remember { mutableIntStateOf(darkOverride) }
-            var revealing by remember { mutableStateOf(false) }
-            val reveal = remember { Animatable(0f) }
-            var rootSize by remember { mutableStateOf(androidx.compose.ui.geometry.Size.Zero) }
+            val veil = remember { Animatable(0f) }
             val currentName by vm.userName.collectAsState()
 
             LaunchedEffect(themeId, darkOverride) {
                 if (themeId == baseTheme && darkOverride == baseDark) return@LaunchedEffect
-                revealing = true
-                reveal.snapTo(0f)
-                // Slower on the onboarding screen, slightly slower everywhere else.
-                reveal.animateTo(1f, tween(if (currentName.isEmpty()) 1500 else 1100, easing = FastOutSlowInEasing))
+                val slow = currentName.isEmpty()
+                veil.animateTo(1f, tween(if (slow) 750 else 550, easing = FastOutSlowInEasing))
                 baseTheme = themeId
                 baseDark = darkOverride
-                revealing = false
+                veil.animateTo(0f, tween(if (slow) 950 else 700, easing = FastOutSlowInEasing))
             }
 
-            Box(
-                Modifier.fillMaxSize().onGloballyPositioned { coords ->
-                    rootSize = androidx.compose.ui.geometry.Size(
-                        coords.size.width.toFloat(), coords.size.height.toFloat()
-                    )
-                }
-            ) {
+            Box(Modifier.fillMaxSize()) {
                 ZadAppTheme(baseTheme, baseDark) {
                     ZadAppContent(vm)
                 }
-                if (revealing && rootSize.width > 0f) {
-                    val origin = if (ThemeReveal.origin != Offset.Unspecified) ThemeReveal.origin
-                        else Offset(rootSize.width / 2f, rootSize.height / 2f)
-                    val maxRadius = run {
-                        val corners = listOf(
-                            Offset(0f, 0f), Offset(rootSize.width, 0f),
-                            Offset(0f, rootSize.height), Offset(rootSize.width, rootSize.height),
-                        )
-                        corners.maxOf { (it - origin).getDistance() }
-                    }
-                    val revealShape = GenericShape { _, _ ->
-                        val r = reveal.value * maxRadius
-                        addOval(Rect(origin.x - r, origin.y - r, origin.x + r, origin.y + r))
-                    }
-                    Box(Modifier.fillMaxSize().clip(revealShape)) {
-                        ZadAppTheme(themeId, darkOverride) {
-                            ZadAppContent(vm)
-                        }
-                    }
+                if (veil.value > 0f) {
+                    val veilScheme = themeScheme(themeId, darkOverride)
+                    Box(
+                        Modifier.fillMaxSize()
+                            .graphicsLayer { alpha = veil.value }
+                            .background(
+                                androidx.compose.ui.graphics.Brush.verticalGradient(
+                                    listOf(veilScheme.primary, veilScheme.secondary)
+                                )
+                            )
+                    )
                 }
             }
         }
