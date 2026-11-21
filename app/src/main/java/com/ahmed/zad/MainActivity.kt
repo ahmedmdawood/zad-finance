@@ -53,6 +53,14 @@ class MainActivity : FragmentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val defaultCrashHandler = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { thread, error ->
+            try {
+                java.io.File(filesDir, "last_crash.txt").writeText(android.util.Log.getStackTraceString(error))
+            } catch (_: Exception) {
+            }
+            defaultCrashHandler?.uncaughtException(thread, error)
+        }
         enableEdgeToEdge()
         ZadNotifications.createChannels(this)
         BalanceWidgetProvider.refresh(this)
