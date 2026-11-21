@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.sp
 fun accountTypeLabel(type: String): String = when (type) {
     "CASH" -> "نقدي"
     "BANK" -> "بنكي"
+    "EWALLET" -> "محفظة إلكترونية"
     "CREDIT" -> "بطاقة ائتمانية"
     else -> "أخرى"
 }
@@ -56,7 +57,7 @@ fun AccountsTab(vm: MainViewModel) {
         if (accounts.isEmpty()) {
             item {
                 Text(
-                    "ضيف أول حساب: نقدي، بنكي، أو بطاقة ائتمانية.",
+                    "ضيف أول حساب: نقدي، بنكي، محفظة إلكترونية، أو بطاقة ائتمانية.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp,
                 )
             }
@@ -107,7 +108,14 @@ fun AccountsTab(vm: MainViewModel) {
                 }
             }
         }
-        item { Spacer(Modifier.height(24.dp)) }
+        item {
+            Spacer(Modifier.height(4.dp))
+            PressScaleButton(
+                onClick = { vm.openOverlay(Overlay.AddAccount) },
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("إضافة حساب جديد") }
+            Spacer(Modifier.height(24.dp))
+        }
     }
 }
 
