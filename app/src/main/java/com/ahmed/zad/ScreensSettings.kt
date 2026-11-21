@@ -44,6 +44,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
@@ -63,6 +70,10 @@ fun SettingsTab(vm: MainViewModel) {
     val salaryExpr by vm.expectedSalary.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val photoSet by vm.userPhotoSet.collectAsState()
+    val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        uri?.let { runCatching { context.contentResolver.openInputStream(it) }.getOrNull()?.let(vm::saveUserPhoto) }
+    }
 
     var nameDraft by remember(name) { mutableStateOf(name) }
     var salaryDraft by remember(salaryExpr) { mutableStateOf(salaryExpr) }
@@ -177,6 +188,53 @@ fun SettingsTab(vm: MainViewModel) {
                     onClick = { vm.changeName(nameDraft.trim()) },
                     enabled = nameDraft.isNotBlank() && nameDraft.trim() != name,
                 ) { Text("حفظ الاسم") }
+            }
+        }
+
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("الصورة الشخصية", fontWeight = FontWeight.SemiBold)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    val photo = remember(photoSet) {
+                        if (!photoSet) null else runCatching {
+                            android.graphics.BitmapFactory.decodeFile(context.filesDir.resolve("user_photo.jpg").absolutePath)?.asImageBitmap()
+                        }.getOrNull()
+                    }
+                    if (photo != null) {
+                        Image(
+                            bitmap = photo, contentDescription = null,
+                            modifier = Modifier.size(52.dp).clip(CircleShape).border(2.dp, MaterialTheme.colorScheme.primary, CircleShape),
+                            contentScale = ContentScale.Crop,
+                        )
+                    } else {
+                        Box(
+                            Modifier.size(52.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(name.firstOrNull()?.toString() ?: "؟", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Column {
+                        Text("بتظهر على بطاقتك في الرئيسية", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(onClick = { photoPicker.launch("image/*") }) {
+                                Text(if (photoSet) "تغيير" else "اختيار صورة", fontSize = 12.sp)
+                            }
+                            if (photoSet) {
+                                OutlinedButton(onClick = { vm.clearUserPhoto() }) { Text("إزالة", fontSize = 12.sp) }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("الملاحظات", fontWeight = FontWeight.SemiBold)
+                Text("ملاحظاتك وتذكيراتك، والمميزة ⭐ تفضل فوق دايماً.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                PressScaleButton(onClick = { vm.openOverlay(Overlay.Notes) }, modifier = Modifier.fillMaxWidth()) { Text("فتح الملاحظات") }
             }
         }
 
