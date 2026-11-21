@@ -30,12 +30,12 @@ jobs:
         run: gradle assembleRelease --no-daemon --stacktrace
 
       - name: Rename APK
-        run: cp app/build/outputs/apk/release/app-release.apk zad-v1.3.1.apk
+        run: cp app/build/outputs/apk/release/app-release.apk zad-v1.4.apk
 
       - name: Publish to Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.3.1
-          name: ZAD v1.3.1
-          body: "ZAD v1.3.1 - hotfix: scrollable setup screen with always-visible start button. Created with care by ahmed dawood"
-          files: zad-v1.3.1.apk
+          tag_name: v1.4
+          name: ZAD v1.4
+          body: "ZAD v1.4 - drawn quick-action icons, flippable hero card with per-account balances, e-wallet account type, slower theme transitions, and fixes for photo picker, receipt photo, notifications, and custom categories. Created with care by ahmed dawood"
+          files: zad-v1.4.apk
