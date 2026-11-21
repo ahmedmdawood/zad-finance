@@ -287,10 +287,10 @@ fun ZadAppTheme(themeId: String, darkOverride: Int = -1, content: @Composable ()
     }
 }
 
-/** Golden founder badge: gradient disc, thin light ring. */
+/** Golden founder badge: gradient disc, thin light ring. Letters stay centered at any size. */
 @Composable
 fun AdBadge(modifier: Modifier = Modifier) {
-    Box(
+    androidx.compose.foundation.layout.BoxWithConstraints(
         contentAlignment = Alignment.Center,
         modifier = modifier
             .size(26.dp)
@@ -300,15 +300,18 @@ fun AdBadge(modifier: Modifier = Modifier) {
                     listOf(Color(0xFFF6D878), Color(0xFFC9A227), Color(0xFF8C6D1F))
                 )
             )
-            .border(1.dp, Color(0xFFFFF3C4), CircleShape)
-            .padding(2.dp),
+            .border(1.dp, Color(0xFFFFF3C4), CircleShape),
     ) {
+        val badgeFont = (maxWidth.value * 0.40f).sp
         Text(
             "AD",
             color = Color(0xFF3B2E05),
-            fontSize = 10.sp,
+            fontSize = badgeFont,
+            lineHeight = badgeFont,
             fontWeight = FontWeight.ExtraBold,
-            letterSpacing = 0.5.sp,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            maxLines = 1,
+            softWrap = false,
         )
     }
 }
