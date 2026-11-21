@@ -328,6 +328,17 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val _expectedSalary = MutableStateFlow(prefs.expectedSalaryExpression)
     val expectedSalary: StateFlow<String> = _expectedSalary
 
+    private val _customAccountTypes = MutableStateFlow(prefs.customAccountTypes)
+    val customAccountTypes: StateFlow<List<String>> = _customAccountTypes
+
+    fun addCustomAccountType(name: String) {
+        val clean = name.trim()
+        if (clean.isEmpty() || _customAccountTypes.value.contains(clean)) return
+        val next = _customAccountTypes.value + clean
+        prefs.customAccountTypes = next
+        _customAccountTypes.value = next
+    }
+
     private val _voiceEnabled = MutableStateFlow(prefs.voiceEntryEnabled)
     val voiceEnabled: StateFlow<Boolean> = _voiceEnabled
 
