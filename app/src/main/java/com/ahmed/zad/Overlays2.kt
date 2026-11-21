@@ -1,5 +1,7 @@
 package com.ahmed.zad
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -304,4 +306,81 @@ fun PasswordPromptDialog(vm: MainViewModel) {
         },
         dismissButton = { PressScaleButton(onClick = { vm.dismissPasswordPrompt() }) { Text("إلغاء") } },
     )
+}
+
+
+@Composable
+fun NotesScreen(vm: MainViewModel) {
+    val notes by vm.notes.collectAsState()
+    var editing by remember { mutableStateOf<ZadNote?>(null) }
+    var showAdd by remember { mutableStateOf(false) }
+    val sorted = notes.sortedWith(compareByDescending<ZadNote> { it.pinned }.thenByDescending { it.createdAt })
+    Column(
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Spacer(Modifier.height(4.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("ملاحظاتي", fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            OutlinedButton(onClick = { vm.closeOverlay() }) { Text("رجوع", fontSize = 13.sp) }
+        }
+        if (sorted.isEmpty()) {
+            Spacer(Modifier.height(24.dp))
+            Text("مفيش ملاحظات لسه 📝", fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            Text("اكتب أول ملاحظة: فكرة، تذكير، أو حاجة عايز ترجعلها.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        sorted.forEach { note ->
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = if (note.pinned) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surface
+                ),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        if (note.pinned) "⭐" else "☆",
+                        fontSize = 18.sp,
+                        modifier = Modifier.clickable { vm.toggleNotePin(note.id) },
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    Column(Modifier.weight(1f).clickable { editing = note }) {
+                        Text(note.text, fontSize = 14.sp)
+                        if (note.pinned) Text("مميزة", fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
+                    }
+                    Text("🗑", fontSize = 16.sp, modifier = Modifier.clickable { vm.deleteNote(note.id) })
+                }
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        PressScaleButton(onClick = { showAdd = true }, modifier = Modifier.fillMaxWidth()) { Text("ملاحظة جديدة") }
+        Spacer(Modifier.height(20.dp))
+    }
+    if (showAdd || editing != null) {
+        val isEdit = editing != null
+        var text by remember(showAdd, editing) { mutableStateOf(editing?.text ?: "") }
+        AlertDialog(
+            onDismissRequest = { showAdd = false; editing = null },
+            title = { Text(if (isEdit) "تعديل الملاحظة" else "ملاحظة جديدة") },
+            text = {
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    minLines = 3,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            },
+            confirmButton = {
+                Button(onClick = {
+                    if (text.isNotBlank()) {
+                        if (isEdit) vm.updateNote(editing!!.id, text) else vm.addNote(text)
+                        showAdd = false
+                        editing = null
+                    }
+                }) { Text("حفظ") }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { showAdd = false; editing = null }) { Text("إلغاء") }
+            },
+        )
+    }
 }
