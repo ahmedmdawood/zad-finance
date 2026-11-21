@@ -380,7 +380,7 @@ class ZadPrefs(context: Context) {
         set(v) = prefs.edit().putBoolean("special_identity", v).apply()
 
     var themeId: String
-        get() = prefs.getString("theme_id", "coffee_dark") ?: "coffee_dark"
+        get() = prefs.getString("theme_id", "gold") ?: "gold"
         set(v) = prefs.edit().putString("theme_id", v).apply()
 
     var privacyHidden: Boolean
@@ -427,6 +427,10 @@ class ZadPrefs(context: Context) {
     var projectionDismissed: Boolean
         get() = prefs.getBoolean("projection_dismissed", false)
         set(v) = prefs.edit().putBoolean("projection_dismissed", v).apply()
+
+    var userPhotoSet: Boolean
+        get() = prefs.getBoolean("user_photo_set", false)
+        set(v) = prefs.edit().putBoolean("user_photo_set", v).apply()
 
     var expectedSalaryExpression: String
         get() = prefs.getString("expected_salary_expression", "") ?: ""
