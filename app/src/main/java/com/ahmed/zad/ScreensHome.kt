@@ -69,7 +69,7 @@ fun OnboardingScreen(vm: MainViewModel) {
         Spacer(Modifier.height(20.dp))
         Text("اختار الثيم", fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
         Spacer(Modifier.height(8.dp))
-        ThemePicker(selected = theme, onSelect = { theme = it })
+        ThemePicker(selected = theme, isDark = false, onSelect = { id, _ -> theme = id })
         Spacer(Modifier.height(24.dp))
         PressScaleButton(
             onClick = { if (name.isNotBlank()) vm.completeOnboarding(name.trim(), theme) },
