@@ -243,7 +243,7 @@ fun SettingsTab(vm: MainViewModel) {
                     Column {
                         Text("بتظهر على بطاقتك في الرئيسية", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedButton(onClick = { startPhotoPicker() }) {
+                            OutlinedButton(onClick = { showPhotoBrowser = true }) {
                                 Text(if (photoSet) "تغيير" else "اختيار صورة", fontSize = 12.sp)
                             }
                             if (photoSet) {
@@ -400,7 +400,23 @@ fun SettingsTab(vm: MainViewModel) {
                     fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 OutlinedButton(
-                    onClick = { reportLauncher.launch("zad-report.pdf") },
+                    onClick = {
+                        runCatching { reportLauncher.launch("zad-report.pdf") }.onFailure {
+                            scope.launch {
+                                backupMessage = try {
+                                    val target = downloadsUri(context, "zad-report.pdf", "application/pdf")
+                                    if (target == null) {
+                                        "فشل إنشاء التقرير"
+                                    } else {
+                                        generateMonthlyReport(context, target, transactions, EXPENSE_CATEGORIES)
+                                        "اتحفظ التقرير في التنزيلات"
+                                    }
+                                } catch (e: Exception) {
+                                    "فشل إنشاء التقرير"
+                                }
+                            }
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth(),
                 ) { Text("إنشاء تقرير الشهر (PDF)") }
             }
@@ -415,11 +431,31 @@ fun SettingsTab(vm: MainViewModel) {
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(
-                        onClick = { exportLauncher.launch("zad-backup.db") },
+                        onClick = {
+                            runCatching { exportLauncher.launch("zad-backup.db") }.onFailure {
+                                scope.launch {
+                                    backupMessage = try {
+                                        val target = downloadsUri(context, "zad-backup.db", "application/octet-stream")
+                                        if (target == null) {
+                                            "فشل النسخ الاحتياطي"
+                                        } else {
+                                            exportDatabase(context, vm.dbPath(), target)
+                                            "اتحفظت النسخة الاحتياطية في التنزيلات"
+                                        }
+                                    } catch (e: Exception) {
+                                        "فشل النسخ الاحتياطي"
+                                    }
+                                }
+                            }
+                        },
                         modifier = Modifier.weight(1f),
                     ) { Text("نسخ احتياطي", fontSize = 13.sp) }
                     OutlinedButton(
-                        onClick = { importLauncher.launch(arrayOf("*/*")) },
+                        onClick = {
+                            runCatching { importLauncher.launch(arrayOf("*/*")) }.onFailure {
+                                backupMessage = "مفيش تطبيق ملفات على الجهاز يقدر يفتح النسخة الاحتياطية"
+                            }
+                        },
                         modifier = Modifier.weight(1f),
                     ) { Text("استعادة", fontSize = 13.sp) }
                 }
@@ -536,7 +572,22 @@ fun SettingsTab(vm: MainViewModel) {
                 PressScaleButton(
                     onClick = {
                         val ym = java.time.YearMonth.now().minusMonths(csvMonthOffset.toLong())
-                        csvLauncher.launch("zad-${ym.year}-" + "%02d".format(ym.monthValue) + ".csv")
+                        val fileName = "zad-${ym.year}-" + "%02d".format(ym.monthValue) + ".csv"
+                        runCatching { csvLauncher.launch(fileName) }.onFailure {
+                            scope.launch {
+                                backupMessage = try {
+                                    val target = downloadsUri(context, fileName, "text/csv")
+                                    if (target == null) {
+                                        "فشل تصدير الملف"
+                                    } else {
+                                        exportMonthCsv(context, target, transactions, accountsList, ym.year, ym.monthValue)
+                                        "اتحفظ الملف في التنزيلات"
+                                    }
+                                } catch (e: Exception) {
+                                    "فشل تصدير الملف"
+                                }
+                            }
+                        }
                     },
                     modifier = Modifier.fillMaxWidth(),
                 ) { Text("⬇ تصدير الشهر المختار (Excel / CSV)") }
