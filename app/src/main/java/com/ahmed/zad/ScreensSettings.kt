@@ -46,6 +46,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.CircleShape
@@ -201,7 +202,7 @@ fun SettingsTab(vm: MainViewModel) {
             }
         }
 
-        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+        SettingsGroup("الحساب", "الاسم والصورة الشخصية") {
             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("الاسم", fontWeight = FontWeight.SemiBold)
                 OutlinedTextField(
@@ -215,9 +216,6 @@ fun SettingsTab(vm: MainViewModel) {
                     enabled = nameDraft.isNotBlank() && nameDraft.trim() != name,
                 ) { Text("حفظ الاسم") }
             }
-        }
-
-        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("الصورة الشخصية", fontWeight = FontWeight.SemiBold)
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -265,41 +263,7 @@ fun SettingsTab(vm: MainViewModel) {
             }
         }
 
-        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("الملاحظات", fontWeight = FontWeight.SemiBold)
-                Text("ملاحظاتك وتذكيراتك، والمميزة ⭐ تفضل فوق دايماً.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                PressScaleButton(onClick = { vm.openOverlay(Overlay.Notes) }, modifier = Modifier.fillMaxWidth()) { Text("فتح الملاحظات") }
-            }
-        }
-
-        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("المرتب الشهري المتوقع", fontWeight = FontWeight.SemiBold)
-                OutlinedTextField(
-                    value = salaryDraft,
-                    onValueChange = { salaryDraft = it },
-                    singleLine = true,
-                    placeholder = { Text("مثال: 2500") },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                if (salaryDraft.isNotBlank()) {
-                    val salaryPreview = try {
-                        evaluateToPiasters(salaryDraft).first to null
-                    } catch (e: EvalException) {
-                        null to (e.message ?: "خطأ")
-                    }
-                    if (salaryPreview.first != null) {
-                        Text("= ${formatMoney(salaryPreview.first!!)}", color = MaterialTheme.colorScheme.primary, fontSize = 13.sp)
-                    } else {
-                        Text(salaryPreview.second ?: "", color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
-                    }
-                }
-                PressScaleButton(onClick = { vm.setExpectedSalary(salaryDraft.trim()) }) { Text("حفظ المرتب") }
-            }
-        }
-
-        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+        SettingsGroup("السمات", "الألوان والوضع الداكن") {
             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("الثيم", fontWeight = FontWeight.SemiBold)
                 val darkOverride by vm.darkOverride.collectAsState()
@@ -326,7 +290,7 @@ fun SettingsTab(vm: MainViewModel) {
             }
         }
 
-        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+        SettingsGroup("الخصوصية والأمان", "إخفاء الأرقام وحماية العمليات وقفل التطبيق") {
             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("الخصوصية", fontWeight = FontWeight.SemiBold)
                 Text("العمليات المخفية محمية في السجل ومش بتظهر في تصدير CSV أو PDF. النسخة الاحتياطية الكاملة بتشملها، فاحفظها في مكان آمن.", fontSize = 12.sp)
@@ -345,9 +309,16 @@ fun SettingsTab(vm: MainViewModel) {
                     }
                 }
             }
+            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("الأمان", fontWeight = FontWeight.SemiBold)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("قفل التطبيق بالبصمة أو قفل الجهاز", modifier = Modifier.weight(1f), fontSize = 14.sp)
+                    Switch(checked = appLockEnabled, onCheckedChange = { vm.setAppLockEnabled(it) })
+                }
+            }
         }
 
-        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+        SettingsGroup("الإدخال والإشعارات", "الإدخال الصوتي والتنبيهات والتذكير") {
             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("الإدخال الصوتي", fontWeight = FontWeight.SemiBold)
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -362,121 +333,6 @@ fun SettingsTab(vm: MainViewModel) {
                     SpeechInstallPrompt()
                 }
             }
-        }
-
-        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("ميزانيات الفئات", fontWeight = FontWeight.SemiBold)
-                budgets.forEach { budget ->
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                        Column(Modifier.weight(1f)) {
-                            Text(categoryEmoji(budget.category) + " " + budget.category, fontSize = 14.sp, maxLines = 1)
-                            Text(
-                                "حد الشهر: " + formatMoney(budget.limitPiasters),
-                                fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        TextButton(onClick = { vm.clearBudget(budget.category) }) {
-                            Text("إزالة", fontSize = 12.sp)
-                        }
-                    }
-                }
-                CategoryChips(selected = budgetCategory, categories = vm.allCategories(), onSelect = { budgetCategory = it })
-                CalculatorAmountInput(value = budgetExpr, onValueChange = { budgetExpr = it }, label = "حد الشهر للفئة المختارة")
-                PressScaleButton(
-                    onClick = {
-                        try {
-                            val (p, _) = evaluateToPiasters(budgetExpr)
-                            if (p > 0) { vm.setBudget(budgetCategory, budgetExpr); budgetExpr = "" }
-                        } catch (e: EvalException) { }
-                    },
-                    enabled = budgetExpr.isNotBlank(),
-                ) { Text("حفظ ميزانية $budgetCategory") }
-            }
-        }
-
-        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("التقرير الشهري", fontWeight = FontWeight.SemiBold)
-                Text(
-                    "ملخص PDF لدخلك ومصروفاتك الشهر ده، مقسومة على الفئات.",
-                    fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                OutlinedButton(
-                    onClick = {
-                        runCatching { reportLauncher.launch("zad-report.pdf") }.onFailure {
-                            scope.launch {
-                                backupMessage = try {
-                                    val target = downloadsUri(context, "zad-report.pdf", "application/pdf")
-                                    if (target == null) {
-                                        "فشل إنشاء التقرير"
-                                    } else {
-                                        generateMonthlyReport(context, target, transactions.filterNot { it.hidden }, EXPENSE_CATEGORIES)
-                                        "اتحفظ التقرير في التنزيلات"
-                                    }
-                                } catch (e: Exception) {
-                                    "فشل إنشاء التقرير"
-                                }
-                            }
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                ) { Text("إنشاء تقرير الشهر (PDF)") }
-            }
-        }
-
-        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("النسخ الاحتياطي", fontWeight = FontWeight.SemiBold)
-                Text(
-                    "بياناتك كلها محلية على جهازك. اعمل نسخة احتياطية واحتفظ بيها في مكان آمن.",
-                    fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(
-                        onClick = {
-                            runCatching { exportLauncher.launch("zad-backup.db") }.onFailure {
-                                scope.launch {
-                                    backupMessage = try {
-                                        val target = downloadsUri(context, "zad-backup.db", "application/octet-stream")
-                                        if (target == null) {
-                                            "فشل النسخ الاحتياطي"
-                                        } else {
-                                            exportDatabase(context, vm.dbPath(), target)
-                                            "اتحفظت النسخة الاحتياطية في التنزيلات"
-                                        }
-                                    } catch (e: Exception) {
-                                        "فشل النسخ الاحتياطي"
-                                    }
-                                }
-                            }
-                        },
-                        modifier = Modifier.weight(1f),
-                    ) { Text("نسخ احتياطي", fontSize = 13.sp) }
-                    OutlinedButton(
-                        onClick = {
-                            runCatching { importLauncher.launch(arrayOf("*/*")) }.onFailure {
-                                backupMessage = "مفيش تطبيق ملفات على الجهاز يقدر يفتح النسخة الاحتياطية"
-                            }
-                        },
-                        modifier = Modifier.weight(1f),
-                    ) { Text("استعادة", fontSize = 13.sp) }
-                }
-                backupMessage?.let { Text(it, fontSize = 12.sp, color = MaterialTheme.colorScheme.primary) }
-            }
-        }
-
-        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("الأمان", fontWeight = FontWeight.SemiBold)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("قفل التطبيق بالبصمة أو قفل الجهاز", modifier = Modifier.weight(1f), fontSize = 14.sp)
-                    Switch(checked = appLockEnabled, onCheckedChange = { vm.setAppLockEnabled(it) })
-                }
-            }
-        }
-
-        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("الإشعارات", fontWeight = FontWeight.SemiBold)
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -515,7 +371,36 @@ fun SettingsTab(vm: MainViewModel) {
             }
         }
 
-        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+        SettingsGroup("ميزانيات الفئات", "حدود شهرية للمصاريف حسب الفئة") {
+            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("حدود المصاريف الشهرية", fontWeight = FontWeight.SemiBold)
+                Text("مثال: حدد للأكل ٢٠٠٠ جنيه في الشهر. زاد يجمع مصاريف الأكل وينبهك لو هتعدي الحد. ده تنبيه بس، مش حساب جديد ولا خصم إضافي، ومش بيمنعك تصرف.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                budgets.forEach { budget ->
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.weight(1f)) {
+                            Text(categoryEmoji(budget.category) + " " + budget.category, fontSize = 14.sp, maxLines = 1)
+                            Text(
+                                "حد الشهر: " + formatMoney(budget.limitPiasters),
+                                fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        TextButton(onClick = { vm.clearBudget(budget.category) }) {
+                            Text("إزالة", fontSize = 12.sp)
+                        }
+                    }
+                }
+                CategoryChips(selected = budgetCategory, categories = vm.allCategories(), onSelect = { budgetCategory = it })
+                CalculatorAmountInput(value = budgetExpr, onValueChange = { budgetExpr = it }, label = "حد الشهر للفئة المختارة")
+                PressScaleButton(
+                    onClick = {
+                        try {
+                            val (p, _) = evaluateToPiasters(budgetExpr)
+                            if (p > 0) { vm.setBudget(budgetCategory, budgetExpr); budgetExpr = "" }
+                        } catch (e: EvalException) { }
+                    },
+                    enabled = budgetExpr.isNotBlank(),
+                ) { Text("حفظ ميزانية $budgetCategory") }
+            }
             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("فئات مخصصة", fontWeight = FontWeight.SemiBold)
                 if (customCategories.isNotEmpty()) {
@@ -557,7 +442,72 @@ fun SettingsTab(vm: MainViewModel) {
             }
         }
 
-        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+        SettingsGroup("البيانات والتقارير", "PDF وExcel / CSV والنسخ الاحتياطي") {
+            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("التقرير الشهري", fontWeight = FontWeight.SemiBold)
+                Text(
+                    "ملخص PDF لدخلك ومصروفاتك الشهر ده، مقسومة على الفئات.",
+                    fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                OutlinedButton(
+                    onClick = {
+                        runCatching { reportLauncher.launch("zad-report.pdf") }.onFailure {
+                            scope.launch {
+                                backupMessage = try {
+                                    val target = downloadsUri(context, "zad-report.pdf", "application/pdf")
+                                    if (target == null) {
+                                        "فشل إنشاء التقرير"
+                                    } else {
+                                        generateMonthlyReport(context, target, transactions.filterNot { it.hidden }, EXPENSE_CATEGORIES)
+                                        "اتحفظ التقرير في التنزيلات"
+                                    }
+                                } catch (e: Exception) {
+                                    "فشل إنشاء التقرير"
+                                }
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("إنشاء تقرير الشهر (PDF)") }
+            }
+            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("النسخ الاحتياطي", fontWeight = FontWeight.SemiBold)
+                Text(
+                    "بياناتك كلها محلية على جهازك. اعمل نسخة احتياطية واحتفظ بيها في مكان آمن.",
+                    fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(
+                        onClick = {
+                            runCatching { exportLauncher.launch("zad-backup.db") }.onFailure {
+                                scope.launch {
+                                    backupMessage = try {
+                                        val target = downloadsUri(context, "zad-backup.db", "application/octet-stream")
+                                        if (target == null) {
+                                            "فشل النسخ الاحتياطي"
+                                        } else {
+                                            exportDatabase(context, vm.dbPath(), target)
+                                            "اتحفظت النسخة الاحتياطية في التنزيلات"
+                                        }
+                                    } catch (e: Exception) {
+                                        "فشل النسخ الاحتياطي"
+                                    }
+                                }
+                            }
+                        },
+                        modifier = Modifier.weight(1f),
+                    ) { Text("نسخ احتياطي", fontSize = 13.sp) }
+                    OutlinedButton(
+                        onClick = {
+                            runCatching { importLauncher.launch(arrayOf("*/*")) }.onFailure {
+                                backupMessage = "مفيش تطبيق ملفات على الجهاز يقدر يفتح النسخة الاحتياطية"
+                            }
+                        },
+                        modifier = Modifier.weight(1f),
+                    ) { Text("استعادة", fontSize = 13.sp) }
+                }
+                backupMessage?.let { Text(it, fontSize = 12.sp, color = MaterialTheme.colorScheme.primary) }
+            }
             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("تصدير Excel / CSV", fontWeight = FontWeight.SemiBold)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -595,8 +545,6 @@ fun SettingsTab(vm: MainViewModel) {
                     modifier = Modifier.fillMaxWidth(),
                 ) { Text("⬇ تصدير الشهر المختار (Excel / CSV)") }
             }
-        }
-
         Card(
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             modifier = Modifier.fillMaxWidth().clickable { vm.openOverlay(Overlay.Trash) },
@@ -611,6 +559,39 @@ fun SettingsTab(vm: MainViewModel) {
             }
         }
 
+        }
+
+        SettingsGroup("تنظيم أموالك", "المرتب المتوقع والملاحظات") {
+            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("المرتب الشهري المتوقع", fontWeight = FontWeight.SemiBold)
+                OutlinedTextField(
+                    value = salaryDraft,
+                    onValueChange = { salaryDraft = it },
+                    singleLine = true,
+                    placeholder = { Text("مثال: 2500") },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                if (salaryDraft.isNotBlank()) {
+                    val salaryPreview = try {
+                        evaluateToPiasters(salaryDraft).first to null
+                    } catch (e: EvalException) {
+                        null to (e.message ?: "خطأ")
+                    }
+                    if (salaryPreview.first != null) {
+                        Text("= ${formatMoney(salaryPreview.first!!)}", color = MaterialTheme.colorScheme.primary, fontSize = 13.sp)
+                    } else {
+                        Text(salaryPreview.second ?: "", color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
+                    }
+                }
+                PressScaleButton(onClick = { vm.setExpectedSalary(salaryDraft.trim()) }) { Text("حفظ المرتب") }
+            }
+            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("الملاحظات", fontWeight = FontWeight.SemiBold)
+                Text("ملاحظاتك وتذكيراتك، والمميزة ⭐ تفضل فوق دايماً.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                PressScaleButton(onClick = { vm.openOverlay(Overlay.Notes) }, modifier = Modifier.fillMaxWidth()) { Text("فتح الملاحظات") }
+            }
+        }
+
         Card(
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             modifier = Modifier.fillMaxWidth().clickable { vm.openOverlay(Overlay.About) },
@@ -620,6 +601,7 @@ fun SettingsTab(vm: MainViewModel) {
                 Text("‹", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
+
 
         Spacer(Modifier.height(24.dp))
     }
@@ -821,4 +803,32 @@ fun EasterEggDialog(onClose: () -> Unit) {
             }
         },
     )
+}
+
+
+/** One self-contained, accessible accordion row, closed until the user opens it. */
+@Composable
+private fun SettingsGroup(title: String, subtitle: String, content: @Composable () -> Unit) {
+    var expanded by androidx.compose.runtime.saveable.rememberSaveable(title) { mutableStateOf(false) }
+    Card(
+        modifier = Modifier.fillMaxWidth().animateContentSize(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    ) {
+        Column {
+            Row(
+                modifier = Modifier.fillMaxWidth().clickable { expanded = !expanded }.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text(title, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                    Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                }
+                Text(if (expanded) "⌃" else "⌄", fontSize = 22.sp, color = MaterialTheme.colorScheme.primary)
+            }
+            if (expanded) {
+                androidx.compose.material3.HorizontalDivider(modifier = Modifier.padding(horizontal = 14.dp))
+                content()
+            }
+        }
+    }
 }
