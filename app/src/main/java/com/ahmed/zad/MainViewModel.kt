@@ -34,7 +34,10 @@ sealed class Overlay {
     object Charts : Overlay()
     object Calendar : Overlay()
     object Trash : Overlay()
+    object Notes : Overlay()
 }
+
+data class ZadNote(val id: Long, val text: String, val pinned: Boolean, val createdAt: Long)
 
 class MainViewModel(app: Application) : AndroidViewModel(app) {
 
@@ -211,6 +214,86 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _isSpecial = MutableStateFlow(prefs.isSpecialIdentity)
     val isSpecial: StateFlow<Boolean> = _isSpecial
+
+    private val _userPhotoSet = MutableStateFlow(prefs.userPhotoSet)
+    val userPhotoSet: StateFlow<Boolean> = _userPhotoSet
+
+    fun saveUserPhoto(stream: java.io.InputStream?) {
+        if (stream == null) return
+        try {
+            getApplication<Application>().filesDir.resolve("user_photo.jpg").outputStream().use { out -> stream.copyTo(out) }
+            prefs.userPhotoSet = true
+            _userPhotoSet.value = true
+        } catch (e: Exception) { }
+    }
+
+    fun clearUserPhoto() {
+        getApplication<Application>().filesDir.resolve("user_photo.jpg").delete()
+        prefs.userPhotoSet = false
+        _userPhotoSet.value = false
+    }
+
+    private val _notes = MutableStateFlow(loadNotes())
+    val notes: StateFlow<List<ZadNote>> = _notes
+
+    private fun notesFile() = getApplication<Application>().filesDir.resolve("notes.json")
+
+    private fun loadNotes(): List<ZadNote> {
+        return try {
+            val file = notesFile()
+            if (!file.exists()) return emptyList()
+            val arr = org.json.JSONArray(file.readText())
+            (0 until arr.length()).map { i ->
+                val o = arr.getJSONObject(i)
+                ZadNote(o.getLong("id"), o.getString("text"), o.optBoolean("pinned"), o.optLong("createdAt"))
+            }
+        } catch (e: Exception) { emptyList() }
+    }
+
+    private fun persistNotes(list: List<ZadNote>) {
+        try {
+            val arr = org.json.JSONArray()
+            list.forEach { n ->
+                arr.put(
+                    org.json.JSONObject()
+                        .put("id", n.id)
+                        .put("text", n.text)
+                        .put("pinned", n.pinned)
+                        .put("createdAt", n.createdAt)
+                )
+            }
+            notesFile().writeText(arr.toString())
+        } catch (e: Exception) { }
+    }
+
+    fun addNote(text: String) {
+        val t = text.trim()
+        if (t.isEmpty()) return
+        val now = System.currentTimeMillis()
+        val list = _notes.value + ZadNote(now, t, false, now)
+        _notes.value = list
+        persistNotes(list)
+    }
+
+    fun updateNote(id: Long, text: String) {
+        val t = text.trim()
+        if (t.isEmpty()) return
+        val list = _notes.value.map { if (it.id == id) it.copy(text = t) else it }
+        _notes.value = list
+        persistNotes(list)
+    }
+
+    fun deleteNote(id: Long) {
+        val list = _notes.value.filterNot { it.id == id }
+        _notes.value = list
+        persistNotes(list)
+    }
+
+    fun toggleNotePin(id: Long) {
+        val list = _notes.value.map { if (it.id == id) it.copy(pinned = !it.pinned) else it }
+        _notes.value = list
+        persistNotes(list)
+    }
 
     private val _themeId = MutableStateFlow(prefs.themeId)
     val themeId: StateFlow<String> = _themeId
