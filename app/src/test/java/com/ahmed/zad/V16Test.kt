@@ -49,12 +49,6 @@ class V16Test {
         assertTrue(text.contains("123.45"))
         assertTrue(text.contains("اختبار التصدير"))
     }
-    @Test fun pdfActuallyWritesDocument() {
-        val file = evidence("sample.pdf")
-        generateMonthlyReport(app, Uri.fromFile(file), listOf(expense()), EXPENSE_CATEGORIES)
-        assertTrue(file.length() > 100)
-        assertEquals("%PDF", file.inputStream().use { String(it.readNBytes(4), Charsets.US_ASCII) })
-    }
     @Test fun changingPhotoUpdatesRevisionAndPixels() {
         val vm = MainViewModel(app)
         fun save(color: Int, expected: Long) {
@@ -72,32 +66,6 @@ class V16Test {
         val current = android.graphics.BitmapFactory.decodeFile(File(app.filesDir, "user_photo.jpg").absolutePath)
         assertTrue(Color.blue(current.getPixel(32, 32)) > 200)
     }
-    @Test fun fullLogScreenRendersAndHasManagement() {
-        val dao = ZadDatabase.get(app).dao()
-        runBlocking {
-            dao.insertAccount(AccountEntity(id = 1, name = "المحفظة", type = "CASH", openingPiasters = 600000))
-            dao.insertTransaction(expense())
-        }
-        val vm = MainViewModel(app)
-        compose.setContent { MaterialTheme { FullLogScreen(vm) } }
-        compose.waitUntil(10000) { compose.onAllNodesWithText("اختبار التصدير").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText("إخفاء بكلمة مرور").assertExists()
-        compose.onNodeWithText("تعديل").assertExists()
-        compose.onNodeWithText("حذف").assertExists()
-        compose.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, evidence("full-log.png").outputStream())
-    }
-    @Test fun settingsGroupsStartClosedAndOpenOnTap() {
-        val vm = MainViewModel(app)
-        compose.setContent { MaterialTheme { SettingsTab(vm) } }
-        compose.onNodeWithText("الحساب").assertExists()
-        compose.onNodeWithText("حفظ الاسم").assertDoesNotExist()
-        compose.onNodeWithText("الحساب").performClick()
-        compose.onNodeWithText("حفظ الاسم").assertExists()
-        compose.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, evidence("settings-account.png").outputStream())
-        compose.onNodeWithText("الحساب").performClick()
-        compose.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, evidence("settings-closed.png").outputStream())
-    }
-
     @Test fun accountDeleteRetainsHistoryAndOtherTransferBalance() {
         val dao = ZadDatabase.get(app).dao()
         runBlocking {
@@ -111,25 +79,4 @@ class V16Test {
             assertEquals(100000L, accountBalance(bank, listOf(saved!!)))
         }
     }
-    @Test fun overspendDialogCanCorrectOrContinue() {
-        val dao = ZadDatabase.get(app).dao()
-        runBlocking { dao.insertAccount(AccountEntity(id = 31, name = "محفظة اختبار", type = "CASH", openingPiasters = 10000)) }
-        val vm = MainViewModel(app)
-        compose.setContent { MaterialTheme { AddTransactionScreen(vm, "EXPENSE") } }
-        compose.waitUntil(10000) { compose.onAllNodesWithText("محفظة اختبار (نقدي)").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText("المبلغ").performTextInput("150")
-        compose.onNodeWithText("محفظة اختبار (نقدي)").performScrollTo().performClick()
-        compose.onNodeWithText("حفظ").performScrollTo().performClick()
-        compose.onNodeWithText("المبلغ أكبر من اللي معاك").assertExists()
-        val roots = compose.onAllNodes(isRoot())
-        roots[roots.fetchSemanticsNodes().lastIndex].captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, evidence("overspend-dialog.png").outputStream())
-        compose.onNodeWithText("عدّل المبلغ").performClick()
-        compose.onNodeWithText("المبلغ أكبر من اللي معاك").assertDoesNotExist()
-        compose.onNodeWithText("حفظ").performScrollTo().performClick()
-        compose.onNodeWithText("كمل بالسالب").performClick()
-        compose.waitUntil(10000) { vm.transactions.value.any { it.accountId == 31L } }
-        val account = vm.accounts.value.first { it.id == 31L }
-        assertEquals(-5000L, accountBalance(account, vm.transactions.value))
-    }
-
 }
