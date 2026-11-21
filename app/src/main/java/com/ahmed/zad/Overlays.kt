@@ -231,7 +231,12 @@ fun AddAccountScreen(vm: MainViewModel) {
             modifier = Modifier.fillMaxWidth(),
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("CASH" to "نقدي", "BANK" to "بنكي", "CREDIT" to "ائتمانية", "OTHER" to "أخرى").forEach { (id, label) ->
+            listOf("CASH" to "نقدي", "BANK" to "بنكي", "EWALLET" to "محفظة إلكترونية").forEach { (id, label) ->
+                FilterChip(selected = type == id, onClick = { type = id }, label = { Text(label, fontSize = 13.sp) })
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf("CREDIT" to "ائتمانية", "OTHER" to "أخرى").forEach { (id, label) ->
                 FilterChip(selected = type == id, onClick = { type = id }, label = { Text(label, fontSize = 13.sp) })
             }
         }
