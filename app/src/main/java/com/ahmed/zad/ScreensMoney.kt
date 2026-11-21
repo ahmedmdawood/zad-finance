@@ -43,6 +43,16 @@ fun AccountsTab(vm: MainViewModel) {
     val accounts by vm.accounts.collectAsState()
     val transactions by vm.transactions.collectAsState()
     val hidden by vm.privacyHidden.collectAsState()
+    var deleting by remember { mutableStateOf<AccountEntity?>(null) }
+    deleting?.let { account ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { deleting = null },
+            title = { Text("حذف الحساب بالكامل؟") },
+            text = { Text("هيتحذف حساب ${account.name} من حساباتك ورصيده (${formatMoney(accountBalance(account, transactions))}) مش هيظهر ضمن إجمالي فلوسك. سجل العمليات القديمة هيفضل محفوظ، والتحويلات لحساباتك التانية مش هتتغير. الحذف نهائي.") },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = { vm.deleteAccount(account.id); deleting = null }) { Text("حذف الحساب", color = MaterialTheme.colorScheme.error) } },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { deleting = null }) { Text("إلغاء") } },
+        )
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
@@ -52,7 +62,7 @@ fun AccountsTab(vm: MainViewModel) {
             Spacer(Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                 Text("الحسابات", fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                PressScaleButton(onClick = { vm.openOverlay(Overlay.AddAccount) }) { Text("إضافة حساب") }
+                PressScaleButton(onClick = { vm.openOverlay(Overlay.AddAccount()) }) { Text("إضافة حساب") }
             }
         }
         if (accounts.isEmpty()) {
@@ -94,6 +104,10 @@ fun AccountsTab(vm: MainViewModel) {
                             MoneyText(balance, hidden, fontSize = 16, fontWeight = FontWeight.Bold)
                         }
                     }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = { vm.openOverlay(Overlay.AddAccount(account.id)) }, modifier = Modifier.weight(1f)) { Text("تعديل") }
+                        OutlinedButton(onClick = { deleting = account }, modifier = Modifier.weight(1f)) { Text("حذف", color = MaterialTheme.colorScheme.error) }
+                    }
                     if (account.type == "CREDIT") {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             OutlinedButton(
@@ -112,7 +126,7 @@ fun AccountsTab(vm: MainViewModel) {
         item {
             Spacer(Modifier.height(4.dp))
             PressScaleButton(
-                onClick = { vm.openOverlay(Overlay.AddAccount) },
+                onClick = { vm.openOverlay(Overlay.AddAccount()) },
                 modifier = Modifier.fillMaxWidth(),
             ) { Text("إضافة حساب جديد") }
             Spacer(Modifier.height(24.dp))
