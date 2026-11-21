@@ -10,6 +10,18 @@ android {
     compileSdk = 35
 
     signingConfigs {
+        if (System.getenv("ZAD_KEYSTORE_FILE") != null) {
+            create("zadRelease") {
+                storeFile = file(System.getenv("ZAD_KEYSTORE_FILE"))
+                storeType = "PKCS12"
+                storePassword = file(System.getenv("ZAD_STOREPASS_FILE")).readText()
+                keyPassword = storePassword
+                keyAlias = "zadrelease"
+                enableV1Signing = true
+                enableV2Signing = true
+                enableV3Signing = true
+            }
+        }
         named("debug") {
             enableV1Signing = true
             enableV3Signing = true
@@ -17,16 +29,17 @@ android {
     }
 
     defaultConfig {
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         applicationId = "dev.ahmeddawood.zadfinance"
         minSdk = 26
         targetSdk = 35
-        versionCode = 11
-        versionName = "1.6"
+        versionCode = 12
+        versionName = "2.0.0"
     }
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName(if (System.getenv("ZAD_KEYSTORE_FILE") != null) "zadRelease" else "debug")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -54,6 +67,9 @@ android {
 }
 
 dependencies {
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test:runner:1.6.2")
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     testImplementation("junit:junit:4.13.2")
     testImplementation("androidx.compose.ui:ui-test-junit4")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
