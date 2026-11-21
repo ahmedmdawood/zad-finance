@@ -34,7 +34,8 @@ fun accountTypeLabel(type: String): String = when (type) {
     "BANK" -> "بنكي"
     "EWALLET" -> "محفظة إلكترونية"
     "CREDIT" -> "بطاقة ائتمانية"
-    else -> "أخرى"
+    "OTHER" -> "أخرى"
+    else -> type.removePrefix("CUSTOM:")
 }
 
 @Composable
