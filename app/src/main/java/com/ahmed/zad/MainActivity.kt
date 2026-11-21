@@ -238,10 +238,10 @@ fun MainScaffold(vm: MainViewModel) {
     ) { padding ->
         Box(Modifier.padding(padding)) {
         when (val current = overlay) {
-            is Overlay.AddTransaction -> AddTransactionScreen(vm, current.type)
+            is Overlay.AddTransaction -> AddTransactionScreen(vm, current.type, current.editId)
             is Overlay.CardPurchase -> CardPurchaseScreen(vm, current.accountId)
             is Overlay.CardPayment -> CardPaymentScreen(vm, current.accountId)
-            Overlay.AddAccount -> AddAccountScreen(vm)
+            is Overlay.AddAccount -> AddAccountScreen(vm, current.editId)
             Overlay.AddDebt -> AddDebtScreen(vm)
             is Overlay.PayDebt -> PayDebtScreen(vm, current.debtId)
             Overlay.AddObligation -> AddObligationScreen(vm)
@@ -253,6 +253,7 @@ fun MainScaffold(vm: MainViewModel) {
             Overlay.Charts -> ChartsScreen(vm)
             Overlay.Calendar -> CalendarScreen(vm)
             Overlay.Trash -> TrashScreen(vm)
+            Overlay.FullLog -> FullLogScreen(vm)
             Overlay.Notes -> NotesScreen(vm)
             Overlay.None -> AnimatedContent(
                 targetState = tab,
