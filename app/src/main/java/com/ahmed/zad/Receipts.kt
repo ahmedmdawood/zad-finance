@@ -264,7 +264,9 @@ fun ZadPhotoBrowserDialog(onPick: (Uri) -> Unit, onDismiss: () -> Unit) {
         granted = ok
         denied = !ok
     }
-    LaunchedEffect(Unit) { if (!granted) permLauncher.launch(perm) }
+    LaunchedEffect(Unit) {
+        if (!granted) runCatching { permLauncher.launch(perm) }.onFailure { denied = true }
+    }
     LaunchedEffect(granted) {
         if (granted) images = withContext(Dispatchers.IO) { queryDeviceImages(context) }
     }
