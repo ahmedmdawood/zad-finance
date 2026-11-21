@@ -103,7 +103,7 @@ class MainActivity : FragmentActivity() {
                     androidx.compose.foundation.Canvas(
                         Modifier.fillMaxSize().graphicsLayer { alpha = coverAlpha.value }
                     ) {
-                        val o = if (ThemeReveal.origin.isSpecified) ThemeReveal.origin else center
+                        val o = if (ThemeReveal.origin != Offset.Unspecified) ThemeReveal.origin else center
                         val maxR = kotlin.math.hypot(
                             maxOf(o.x, size.width - o.x),
                             maxOf(o.y, size.height - o.y),
