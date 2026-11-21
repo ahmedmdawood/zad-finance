@@ -191,7 +191,7 @@ fun SettingsTab(vm: MainViewModel) {
             }
         }
 
-        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("الصورة الشخصية", fontWeight = FontWeight.SemiBold)
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -321,6 +321,9 @@ fun SettingsTab(vm: MainViewModel) {
                     "اختياري بالكامل والتطبيق شغال من غيره. التعرف الصوتي ممكن يغلط أحيانًا، فراجع المبلغ قبل الحفظ. بيشتغل أوفلاين بعد أول تحميل لحزمة اللغة.",
                     fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                if (voiceEnabled) {
+                    SpeechInstallPrompt()
+                }
             }
         }
 
@@ -455,10 +458,12 @@ fun SettingsTab(vm: MainViewModel) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     OutlinedTextField(
                         value = newCategoryEmoji,
-                        onValueChange = { newCategoryEmoji = it.take(2) },
-                        modifier = Modifier.padding(end = 8.dp),
+                        onValueChange = { newCategoryEmoji = it.takeLast(2) },
+                        modifier = Modifier.width(76.dp),
+                        placeholder = { Text("😀", fontSize = 13.sp) },
                         singleLine = true,
                     )
+                    Spacer(Modifier.width(8.dp))
                     OutlinedTextField(
                         value = newCategoryName,
                         onValueChange = { newCategoryName = it },
@@ -471,8 +476,10 @@ fun SettingsTab(vm: MainViewModel) {
                     onClick = {
                         vm.addCategory(newCategoryName, newCategoryEmoji, "#5C6BC0")
                         newCategoryName = ""
+                        newCategoryEmoji = "📦"
                     },
                     enabled = newCategoryName.isNotBlank(),
+                    modifier = Modifier.fillMaxWidth(),
                 ) { Text("إضافة الفئة") }
             }
         }
