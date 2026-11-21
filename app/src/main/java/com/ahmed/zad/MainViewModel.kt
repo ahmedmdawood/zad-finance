@@ -19,10 +19,10 @@ enum class ZadTab { HOME, ACCOUNTS, DEBTS, OBLIGATIONS, PLANS, SETTINGS }
 
 sealed class Overlay {
     object None : Overlay()
-    data class AddTransaction(val type: String) : Overlay() // INCOME | EXPENSE | TRANSFER
+    data class AddTransaction(val type: String, val editId: Long? = null) : Overlay() // INCOME | EXPENSE | TRANSFER
     data class CardPurchase(val accountId: Long) : Overlay()
     data class CardPayment(val accountId: Long) : Overlay()
-    object AddAccount : Overlay()
+    data class AddAccount(val editId: Long? = null) : Overlay()
     object AddDebt : Overlay()
     data class PayDebt(val debtId: Long) : Overlay()
     object AddObligation : Overlay()
@@ -34,6 +34,7 @@ sealed class Overlay {
     object Charts : Overlay()
     object Calendar : Overlay()
     object Trash : Overlay()
+    object FullLog : Overlay()
     object Notes : Overlay()
 }
 
@@ -217,6 +218,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _userPhotoSet = MutableStateFlow(prefs.userPhotoSet)
     val userPhotoSet: StateFlow<Boolean> = _userPhotoSet
+    private val _userPhotoRevision = MutableStateFlow(0L)
+    val userPhotoRevision: StateFlow<Long> = _userPhotoRevision
 
     fun saveUserPhoto(stream: java.io.InputStream?) {
         if (stream == null) return
@@ -224,7 +227,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         // enough to freeze or crash the app when decoded at full resolution.
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             try {
-                val bytes = stream.readBytes()
+                val bytes = stream.use { it.readBytes() }
                 val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
                 android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
                 var sample = 1
@@ -236,6 +239,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 }
                 prefs.userPhotoSet = true
                 _userPhotoSet.value = true
+                _userPhotoRevision.value += 1L
             } catch (e: Exception) { }
         }
     }
@@ -418,6 +422,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _unlocked = MutableStateFlow(false)
 
+    /** Session unlock for the password-protected hidden rows in the full log. */
+    private val _logUnlocked = MutableStateFlow(false)
+    val logUnlocked: StateFlow<Boolean> = _logUnlocked
+
     private val _tab = MutableStateFlow(ZadTab.HOME)
     val tab: StateFlow<ZadTab> = _tab
 
@@ -434,10 +442,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun openOverlay(overlay: Overlay) {
+        if (_overlay.value == Overlay.FullLog && overlay != Overlay.FullLog) _logUnlocked.value = false
         _overlay.value = overlay
     }
 
     fun closeOverlay() {
+        if (_overlay.value == Overlay.FullLog) _logUnlocked.value = false
         _overlay.value = Overlay.None
     }
 
@@ -497,7 +507,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         data class Locked(val secondsLeft: Long) : UnlockResult()
     }
 
-    fun tryUnlock(password: String): UnlockResult {
+    /** Shared password check with lockout; changes no UI state by itself. */
+    private fun checkPassword(password: String): UnlockResult {
         val now = System.currentTimeMillis()
         val lockout = prefs.lockoutUntil
         if (now < lockout) return UnlockResult.Locked((lockout - now) / 1000 + 1)
@@ -508,9 +519,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         return if (ok) {
             prefs.failedAttempts = 0
             prefs.lockoutUntil = 0
-            _unlocked.value = true
-            _needsPasswordPrompt.value = false
-            setHidden(false)
             UnlockResult.Success
         } else {
             val fails = prefs.failedAttempts + 1
@@ -529,6 +537,23 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun tryUnlock(password: String): UnlockResult {
+        val result = checkPassword(password)
+        if (result is UnlockResult.Success) {
+            _unlocked.value = true
+            _needsPasswordPrompt.value = false
+            setHidden(false)
+        }
+        return result
+    }
+
+    /** Unlock only the hidden rows of the full log for this session. */
+    fun tryUnlockLog(password: String): UnlockResult {
+        val result = checkPassword(password)
+        if (result is UnlockResult.Success) _logUnlocked.value = true
+        return result
+    }
+
     fun dismissPasswordPrompt() {
         _needsPasswordPrompt.value = false
     }
@@ -544,6 +569,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun clearPassword() {
+        if (transactions.value.any { it.hidden }) return
         prefs.clearPassword()
         _hasPassword.value = false
     }
@@ -647,6 +673,73 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 )
             }
             dao.softDeleteTransaction(id, System.currentTimeMillis())
+        }
+    }
+
+    /** Update every editable field of one transaction from the edit form. */
+    fun updateTransaction(
+        id: Long,
+        type: String,
+        expression: String,
+        accountId: Long,
+        toAccountId: Long?,
+        note: String,
+        planId: Long? = null,
+        category: String = "أخرى",
+        receiptPath: String? = null,
+    ) {
+        viewModelScope.launch {
+            val existing = dao.transactionById(id) ?: return@launch
+            val (piasters, _) = evaluateToPiasters(expression)
+            dao.updateTransaction(
+                existing.copy(
+                    type = type,
+                    amountPiasters = piasters,
+                    amountExpression = expression,
+                    accountId = accountId,
+                    toAccountId = toAccountId,
+                    planId = if (type == "EXPENSE") planId else null,
+                    category = if (type == "EXPENSE") category else "أخرى",
+                    receiptPath = if (type == "EXPENSE") receiptPath else null,
+                    note = note,
+                )
+            )
+            closeOverlay()
+        }
+    }
+
+    fun setTransactionHidden(id: Long, hidden: Boolean) {
+        if (hidden) _logUnlocked.value = false
+        viewModelScope.launch { dao.setTransactionHidden(id, hidden) }
+    }
+
+    fun updateAccount(id: Long, name: String, type: String, openingExpression: String, creditLimitExpression: String?) {
+        viewModelScope.launch {
+            val existing = accounts.value.firstOrNull { it.id == id } ?: return@launch
+            val (piasters, _) = evaluateToPiasters(openingExpression)
+            var limit: Long? = null
+            if (type == "CREDIT" && !creditLimitExpression.isNullOrBlank()) {
+                val (limitPiasters, _) = evaluateToPiasters(creditLimitExpression)
+                limit = limitPiasters
+            }
+            dao.updateAccount(
+                existing.copy(
+                    name = name,
+                    type = type,
+                    openingPiasters = if (type == "CREDIT") 0L else piasters,
+                    openingExpression = if (type == "CREDIT") null else openingExpression,
+                    creditLimitPiasters = limit,
+                    creditLimitExpression = if (type == "CREDIT") creditLimitExpression else null,
+                )
+            )
+            closeOverlay()
+        }
+    }
+
+    /** Removes the account from balances while preserving the audit trail and transfer counterparts. */
+    fun deleteAccount(id: Long) {
+        viewModelScope.launch {
+            dao.deleteAccount(id)
         }
     }
 
