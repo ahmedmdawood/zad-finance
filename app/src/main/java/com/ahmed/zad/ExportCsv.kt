@@ -60,3 +60,16 @@ fun exportMonthCsv(
         out.write(sb.toString().toByteArray(Charsets.UTF_8))
     } ?: throw IllegalStateException("cannot write csv")
 }
+
+/** A new file Uri in the public Downloads collection. Needs no permissions on API 29+
+ *  and no DocumentsUI, so it works on stripped devices with no files app. */
+fun downloadsUri(context: Context, name: String, mime: String): Uri? {
+    if (android.os.Build.VERSION.SDK_INT < 29) return null
+    return runCatching {
+        val values = android.content.ContentValues().apply {
+            put(android.provider.MediaStore.Downloads.DISPLAY_NAME, name)
+            put(android.provider.MediaStore.Downloads.MIME_TYPE, mime)
+        }
+        context.contentResolver.insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+    }.getOrNull()
+}
