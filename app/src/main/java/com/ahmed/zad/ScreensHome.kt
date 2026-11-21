@@ -51,6 +51,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -63,6 +64,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -559,6 +562,9 @@ fun BankHeroCard(vm: MainViewModel, name: String, special: Boolean, hidden: Bool
     val remainingBudget by vm.remainingMonthBudgetPiasters.collectAsState()
     val accounts by vm.accounts.collectAsState()
     val transactions by vm.transactions.collectAsState()
+    val notes by vm.notes.collectAsState()
+    val pinnedNotes = remember(notes) { notes.filter { it.pinned }.sortedByDescending { it.createdAt } }
+    var showPinnedNotes by remember { mutableStateOf(false) }
 
     val photo = remember(photoSet, photoRevision) {
         if (!photoSet) null else runCatching {
@@ -610,12 +616,31 @@ fun BankHeroCard(vm: MainViewModel, name: String, special: Boolean, hidden: Bool
                 Column(Modifier.fillMaxSize().padding(18.dp), verticalArrangement = Arrangement.SpaceBetween) {
                     Row(Modifier.fillMaxWidth().padding(end = 42.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text("زاد", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onPrimary)
-                        Spacer(Modifier.weight(1f))
-                        Box(
-                            Modifier.size(width = 34.dp, height = 24.dp)
-                                .clip(RoundedCornerShape(5.dp))
-                                .background(MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.35f))
-                        )
+                        Spacer(Modifier.width(10.dp))
+                        Row(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(34.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.18f))
+                                .clickable { if (pinnedNotes.isEmpty()) vm.openOverlay(Overlay.Notes) else showPinnedNotes = true }
+                                .padding(horizontal = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = pinnedNotes.firstOrNull()?.text ?: "ثبّت ملاحظة تظهر هنا 📌",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = if (pinnedNotes.isEmpty()) 0.6f else 0.9f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                textAlign = TextAlign.Start,
+                                modifier = Modifier.weight(1f),
+                            )
+                            if (pinnedNotes.size > 1) {
+                                Spacer(Modifier.width(6.dp))
+                                Text("+${pinnedNotes.size - 1}", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimary)
+                            }
+                        }
                     }
                     Column {
                         Text("صافي الوضع", fontSize = 12.sp, color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f))
@@ -656,6 +681,28 @@ fun BankHeroCard(vm: MainViewModel, name: String, special: Boolean, hidden: Bool
                     }
                 }
                 HeroFlipButton(onClick = { flipped = true }, modifier = Modifier.align(Alignment.TopEnd).padding(10.dp))
+                if (showPinnedNotes && pinnedNotes.isNotEmpty()) {
+                    AlertDialog(
+                        onDismissRequest = { showPinnedNotes = false },
+                        title = { Text("الملاحظات المثبتة 📌") },
+                        text = {
+                            Column(
+                                modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
+                                verticalArrangement = Arrangement.spacedBy(10.dp),
+                            ) {
+                                pinnedNotes.forEach { note ->
+                                    Text(note.text, fontSize = 14.sp, modifier = Modifier.fillMaxWidth())
+                                }
+                            }
+                        },
+                        confirmButton = {
+                            TextButton(onClick = { showPinnedNotes = false; vm.openOverlay(Overlay.Notes) }) { Text("فتح الملاحظات") }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showPinnedNotes = false }) { Text("إغلاق") }
+                        },
+                    )
+                }
             }
         } else {
             // BACK: every account with its own balance.
