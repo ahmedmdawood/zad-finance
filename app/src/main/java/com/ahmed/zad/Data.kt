@@ -10,6 +10,8 @@ import androidx.room.Query
 import androidx.room.Update
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import kotlinx.coroutines.flow.Flow
 import java.security.MessageDigest
 import java.security.SecureRandom
@@ -47,6 +49,7 @@ data class TransactionEntity(
     val planId: Long? = null,
     val category: String = "أخرى",
     val receiptPath: String? = null,
+    @androidx.room.ColumnInfo(defaultValue = "0") val hidden: Boolean = false,
     val deletedAt: Long? = null,
     val note: String = "",
     val createdAt: Long = System.currentTimeMillis(),
@@ -161,6 +164,19 @@ interface ZadDao {
     @Query("UPDATE transactions SET deletedAt = NULL WHERE id = :id")
     suspend fun restoreTransaction(id: Long)
 
+    @Query("UPDATE transactions SET hidden = :hidden WHERE id = :id")
+    suspend fun setTransactionHidden(id: Long, hidden: Boolean)
+
+    @Update
+    suspend fun updateTransaction(transaction: TransactionEntity)
+
+    @Update
+    suspend fun updateAccount(account: AccountEntity)
+
+    @Query("DELETE FROM accounts WHERE id = :id")
+    suspend fun deleteAccount(id: Long)
+
+
     @Query("SELECT * FROM transactions WHERE deletedAt IS NULL ORDER BY createdAt DESC")
     fun transactionsFlow(): Flow<List<TransactionEntity>>
 
@@ -252,6 +268,13 @@ interface ZadDao {
     fun allocationsFlow(): Flow<List<AllocationEntity>>
 }
 
+/** v2: per-transaction hidden flag for the password-protected full log. */
+val MIGRATION_1_2 = object : Migration(1, 2) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE transactions ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0")
+    }
+}
+
 @Database(
     entities = [
         AccountEntity::class, TransactionEntity::class, DebtEntity::class,
@@ -259,7 +282,7 @@ interface ZadDao {
         ObligationEntity::class, OccurrenceEntity::class,
         PlanEntity::class, AllocationEntity::class, BudgetEntity::class, CategoryEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class ZadDatabase : RoomDatabase() {
@@ -276,7 +299,7 @@ abstract class ZadDatabase : RoomDatabase() {
                     context.applicationContext,
                     ZadDatabase::class.java,
                     "zad.db"
-                ).build().also { instance = it }
+                ).addMigrations(MIGRATION_1_2).build().also { instance = it }
             }
 
         fun closeInstance() {
@@ -489,3 +512,6 @@ object PrivacySecurity {
     fun decode(data: String): ByteArray =
         android.util.Base64.decode(data, android.util.Base64.NO_WRAP)
 }
+
+/** Strict comparison: spending the exact available amount is allowed without a warning. */
+fun shouldWarnOverspend(type: String, amount: Long, available: Long): Boolean = type == "EXPENSE" && amount > available
