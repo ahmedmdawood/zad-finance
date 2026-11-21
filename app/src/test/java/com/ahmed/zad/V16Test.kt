@@ -66,6 +66,23 @@ class V16Test {
         val current = android.graphics.BitmapFactory.decodeFile(File(app.filesDir, "user_photo.jpg").absolutePath)
         assertTrue(Color.blue(current.getPixel(32, 32)) > 200)
     }
+    @Test fun pinnedNoteSortsFirstAndSurvivesReload() {
+        File(app.filesDir, "notes.json").delete()
+        val vm = MainViewModel(app)
+        vm.addNote("ملاحظة عادية")
+        Thread.sleep(5)
+        vm.addNote("ملاحظة مهمة")
+        val important = vm.notes.value.first { it.text == "ملاحظة مهمة" }
+        vm.toggleNotePin(important.id)
+        val pinnedFirst = vm.notes.value.sortedWith(compareByDescending<ZadNote> { it.pinned }.thenByDescending { it.createdAt })
+        assertEquals("ملاحظة مهمة", pinnedFirst.first().text)
+        val reloaded = MainViewModel(app)
+        val restored = reloaded.notes.value.first { it.id == important.id }
+        assertTrue(restored.pinned)
+        vm.toggleNotePin(important.id)
+        assertFalse(vm.notes.value.first { it.id == important.id }.pinned)
+        File(app.filesDir, "notes.json").delete()
+    }
     @Test fun accountDeleteRetainsHistoryAndOtherTransferBalance() {
         val dao = ZadDatabase.get(app).dao()
         runBlocking {
