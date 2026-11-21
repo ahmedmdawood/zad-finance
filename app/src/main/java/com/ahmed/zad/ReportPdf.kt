@@ -32,14 +32,14 @@ fun generateMonthlyReport(
     val titlePaint = Paint().apply {
         textSize = 26f
         typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-        isAntiAlias = true
+        isAntiAlias = true; textAlign = Paint.Align.RIGHT
     }
     val headerPaint = Paint().apply {
         textSize = 16f
         typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-        isAntiAlias = true
+        isAntiAlias = true; textAlign = Paint.Align.RIGHT
     }
-    val textPaint = Paint().apply { textSize = 13f; isAntiAlias = true }
+    val textPaint = Paint().apply { textSize = 13f; isAntiAlias = true; textAlign = Paint.Align.RIGHT }
 
     var y = 70f
     canvas.drawText("زاد — التقرير الشهري", 470f, y, titlePaint); y += 20f
