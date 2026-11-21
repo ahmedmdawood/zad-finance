@@ -30,12 +30,12 @@ jobs:
         run: gradle assembleRelease --no-daemon --stacktrace
 
       - name: Rename APK
-        run: cp app/build/outputs/apk/release/app-release.apk zad-v1.5.2.apk
+        run: cp app/build/outputs/apk/release/app-release.apk zad-v1.5.3.apk
 
       - name: Publish to Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.5.2
-          name: ZAD v1.5.2
-          body: "ZAD v1.5.2 - theme switch animation redone: circular reveal from the toggle in the new theme colors, matching his reference video. Created with care by ahmed dawood"
-          files: zad-v1.5.2.apk
+          tag_name: v1.5.3
+          name: ZAD v1.5.3
+          body: "ZAD v1.5.3 - theme switch animation: light beam sweeps in from the screen corner carrying the new mode, per his instruction. Created with care by ahmed dawood"
+          files: zad-v1.5.3.apk
