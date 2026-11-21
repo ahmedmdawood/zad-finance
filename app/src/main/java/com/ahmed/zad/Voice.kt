@@ -106,6 +106,45 @@ object VoiceParser {
     }
 }
 
+fun speechRecognizerAvailable(context: android.content.Context): Boolean =
+    context.packageManager
+        .queryIntentActivities(Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH), 0)
+        .isNotEmpty()
+
+/** Shown when voice entry is on but the device has no speech service: a button
+ *  that opens the Google app page, plus plain instructions. */
+@Composable
+fun SpeechInstallPrompt() {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var status by remember { mutableStateOf<String?>(null) }
+    if (speechRecognizerAvailable(context)) return
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        OutlinedButton(onClick = {
+            val opened = runCatching {
+                context.startActivity(Intent(Intent.ACTION_VIEW,
+                    android.net.Uri.parse("market://details?id=com.google.android.googlequicksearchbox")))
+            }.isSuccess || runCatching {
+                context.startActivity(Intent(Intent.ACTION_VIEW,
+                    android.net.Uri.parse("https://play.google.com/store/apps/details?id=com.google.android.googlequicksearchbox")))
+            }.isSuccess
+            if (!opened) status = "مش قادر أفتح المتجر من هنا. افتح متجر جوجل بلاي وابحث عن: تطبيق Google"
+        }) {
+            Icon(Icons.Default.Mic, contentDescription = null)
+            Spacer(Modifier.width(6.dp))
+            Text("ثبّت تطبيق جوجل للإدخال الصوتي", fontSize = 13.sp)
+        }
+    }
+    Text(
+        "الجهاز ده مفيهوش خدمة التعرف الصوتي. ثبّت تطبيق جوجل (مجاني) والميزة هتشتغل لوحدها.",
+        fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    status?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 12.sp) }
+}
+
 /** Mic button that listens offline-first and writes the parsed expression into the amount field. */
 @Composable
 fun VoiceAmountButton(enabled: Boolean, onResult: (String) -> Unit) {
@@ -113,13 +152,7 @@ fun VoiceAmountButton(enabled: Boolean, onResult: (String) -> Unit) {
     var status by remember { mutableStateOf<String?>(null) }
     // Some devices ship without a speech-recognition service (no Google app /
     // Speech Services). Detect it up front instead of failing on tap.
-    val recognizerAvailable = remember {
-        context.packageManager
-            .queryIntentActivities(
-                Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH), 0,
-            )
-            .isNotEmpty()
-    }
+    val recognizerAvailable = remember { speechRecognizerAvailable(context) }
     val launcher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -138,32 +171,7 @@ fun VoiceAmountButton(enabled: Boolean, onResult: (String) -> Unit) {
         }
     }
     if (enabled && !recognizerAvailable) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            OutlinedButton(onClick = {
-                try {
-                    val market = Intent(Intent.ACTION_VIEW,
-                        android.net.Uri.parse("market://details?id=com.google.android.googlequicksearchbox"))
-                    context.startActivity(market)
-                } catch (e: Exception) {
-                    try {
-                        context.startActivity(Intent(Intent.ACTION_VIEW,
-                            android.net.Uri.parse("https://play.google.com/store/apps/details?id=com.google.android.googlequicksearchbox")))
-                    } catch (e2: Exception) { }
-                }
-            }) {
-                Icon(Icons.Default.Mic, contentDescription = null)
-                Spacer(Modifier.width(6.dp))
-                Text("الإدخال الصوتي محتاج تطبيق جوجل — اضغط هنا لتثبيته", fontSize = 13.sp)
-            }
-        }
-        Text(
-            "الجهاز ده مفيهوش خدمة التعرف الصوتي. ثبّت تطبيق جوجل (مجاني) والميزة هتشتغل لوحدها.",
-            fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        SpeechInstallPrompt()
     }
     if (enabled && recognizerAvailable) {
         Row(
