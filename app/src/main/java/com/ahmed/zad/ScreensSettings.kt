@@ -71,6 +71,7 @@ fun SettingsTab(vm: MainViewModel) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val photoSet by vm.userPhotoSet.collectAsState()
+    val photoRevision by vm.userPhotoRevision.collectAsState()
     var showPhotoBrowser by remember { mutableStateOf(false) }
     val startPhotoPicker = rememberZadImagePicker(
         onUnavailable = { showPhotoBrowser = true },
@@ -109,7 +110,7 @@ fun SettingsTab(vm: MainViewModel) {
             scope.launch {
                 backupMessage = try {
                     val ym = java.time.YearMonth.now().minusMonths(csvMonthOffset.toLong())
-                    exportMonthCsv(context, uri, transactions, accountsList, ym.year, ym.monthValue)
+                    exportMonthCsv(context, uri, transactions.filterNot { it.hidden }, accountsList, ym.year, ym.monthValue)
                     "اتعمل ملف الإكسل بنجاح"
                 } catch (e: Exception) {
                     "فشل تصدير الملف"
@@ -134,7 +135,7 @@ fun SettingsTab(vm: MainViewModel) {
         if (uri != null) {
             scope.launch {
                 backupMessage = try {
-                    generateMonthlyReport(context, uri, transactions, EXPENSE_CATEGORIES)
+                    generateMonthlyReport(context, uri, transactions.filterNot { it.hidden }, EXPENSE_CATEGORIES)
                     "اتعمل التقرير بنجاح"
                 } catch (e: Exception) {
                     "فشل إنشاء التقرير"
@@ -220,7 +221,7 @@ fun SettingsTab(vm: MainViewModel) {
             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("الصورة الشخصية", fontWeight = FontWeight.SemiBold)
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    val photo = remember(photoSet) {
+                    val photo = remember(photoSet, photoRevision) {
                         if (!photoSet) null else runCatching {
                             android.graphics.BitmapFactory.decodeFile(context.filesDir.resolve("user_photo.jpg").absolutePath)?.asImageBitmap()
                         }.getOrNull()
@@ -328,14 +329,16 @@ fun SettingsTab(vm: MainViewModel) {
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("الخصوصية", fontWeight = FontWeight.SemiBold)
+                Text("العمليات المخفية محمية في السجل ومش بتظهر في تصدير CSV أو PDF. النسخة الاحتياطية الكاملة بتشملها، فاحفظها في مكان آمن.", fontSize = 12.sp)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("إخفاء الأرقام", modifier = Modifier.weight(1f), fontSize = 14.sp)
                     Switch(checked = hidden, onCheckedChange = { vm.onEyeTapped() })
                 }
                 if (hasPassword) {
-                    OutlinedButton(onClick = { vm.clearPassword() }, modifier = Modifier.fillMaxWidth()) {
+                    OutlinedButton(onClick = { vm.clearPassword() }, enabled = transactions.none { it.hidden }, modifier = Modifier.fillMaxWidth()) {
                         Text("إزالة كلمة مرور العرض")
                     }
+                    if (transactions.any { it.hidden }) Text("لازم تلغي إخفاء العمليات بكلمة المرور من السجل قبل إزالة كلمة المرور.", fontSize = 12.sp)
                 } else {
                     OutlinedButton(onClick = { showPasswordDialog = true }, modifier = Modifier.fillMaxWidth()) {
                         Text("تعيين كلمة مرور لإظهار الأرقام")
@@ -408,7 +411,7 @@ fun SettingsTab(vm: MainViewModel) {
                                     if (target == null) {
                                         "فشل إنشاء التقرير"
                                     } else {
-                                        generateMonthlyReport(context, target, transactions, EXPENSE_CATEGORIES)
+                                        generateMonthlyReport(context, target, transactions.filterNot { it.hidden }, EXPENSE_CATEGORIES)
                                         "اتحفظ التقرير في التنزيلات"
                                     }
                                 } catch (e: Exception) {
@@ -580,7 +583,7 @@ fun SettingsTab(vm: MainViewModel) {
                                     if (target == null) {
                                         "فشل تصدير الملف"
                                     } else {
-                                        exportMonthCsv(context, target, transactions, accountsList, ym.year, ym.monthValue)
+                                        exportMonthCsv(context, target, transactions.filterNot { it.hidden }, accountsList, ym.year, ym.monthValue)
                                         "اتحفظ الملف في التنزيلات"
                                     }
                                 } catch (e: Exception) {
