@@ -59,19 +59,23 @@ class MainActivity : FragmentActivity() {
             val themeId by vm.themeId.collectAsState()
             val darkOverride by vm.darkOverride.collectAsState()
 
-            // Ink-blot reveal for the manual light/dark switch: the new theme is
+            // Ink-blot reveal for theme and light/dark switches: the new look is
             // revealed inside a circle expanding from the toggle. Cheap: a second
-            // composition clipped to a circle for ~400ms, no shaders or bitmaps.
+            // composition clipped to a circle, no shaders or bitmaps.
+            var baseTheme by remember { mutableStateOf(themeId) }
             var baseDark by remember { mutableIntStateOf(darkOverride) }
             var revealing by remember { mutableStateOf(false) }
             val reveal = remember { Animatable(0f) }
             var rootSize by remember { mutableStateOf(androidx.compose.ui.geometry.Size.Zero) }
+            val currentName by vm.userName.collectAsState()
 
-            LaunchedEffect(darkOverride) {
-                if (darkOverride == baseDark) return@LaunchedEffect
+            LaunchedEffect(themeId, darkOverride) {
+                if (themeId == baseTheme && darkOverride == baseDark) return@LaunchedEffect
                 revealing = true
                 reveal.snapTo(0f)
-                reveal.animateTo(1f, tween(650, easing = FastOutSlowInEasing))
+                // Slower on the onboarding screen, slightly slower everywhere else.
+                reveal.animateTo(1f, tween(if (currentName.isEmpty()) 1500 else 1100, easing = FastOutSlowInEasing))
+                baseTheme = themeId
                 baseDark = darkOverride
                 revealing = false
             }
@@ -83,7 +87,7 @@ class MainActivity : FragmentActivity() {
                     )
                 }
             ) {
-                ZadAppTheme(themeId, baseDark) {
+                ZadAppTheme(baseTheme, baseDark) {
                     ZadAppContent(vm)
                 }
                 if (revealing && rootSize.width > 0f) {
