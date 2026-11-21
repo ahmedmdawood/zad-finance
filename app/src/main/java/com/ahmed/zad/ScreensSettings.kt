@@ -71,9 +71,9 @@ fun SettingsTab(vm: MainViewModel) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val photoSet by vm.userPhotoSet.collectAsState()
-    var photoPickerUnavailable by remember { mutableStateOf(false) }
+    var showPhotoBrowser by remember { mutableStateOf(false) }
     val startPhotoPicker = rememberZadImagePicker(
-        onUnavailable = { photoPickerUnavailable = true },
+        onUnavailable = { showPhotoBrowser = true },
         onPicked = { uri ->
             runCatching { context.contentResolver.openInputStream(uri) }.getOrNull()?.let(vm::saveUserPhoto)
         },
@@ -229,8 +229,14 @@ fun SettingsTab(vm: MainViewModel) {
                                 OutlinedButton(onClick = { vm.clearUserPhoto() }) { Text("إزالة", fontSize = 12.sp) }
                             }
                         }
-                        if (photoPickerUnavailable) {
-                            Text("الجهاز ده مفيهوش تطبيق يفتح الصور. ثبّت أي تطبيق جاليري أو ملفات وجرب تاني.", fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
+                        if (showPhotoBrowser) {
+                            ZadPhotoBrowserDialog(
+                                onPick = { uri ->
+                                    showPhotoBrowser = false
+                                    runCatching { context.contentResolver.openInputStream(uri) }.getOrNull()?.let(vm::saveUserPhoto)
+                                },
+                                onDismiss = { showPhotoBrowser = false },
+                            )
                         }
                     }
                 }
