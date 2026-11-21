@@ -71,9 +71,13 @@ fun SettingsTab(vm: MainViewModel) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val photoSet by vm.userPhotoSet.collectAsState()
-    val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        uri?.let { runCatching { context.contentResolver.openInputStream(it) }.getOrNull()?.let(vm::saveUserPhoto) }
-    }
+    var photoPickerUnavailable by remember { mutableStateOf(false) }
+    val startPhotoPicker = rememberZadImagePicker(
+        onUnavailable = { photoPickerUnavailable = true },
+        onPicked = { uri ->
+            runCatching { context.contentResolver.openInputStream(uri) }.getOrNull()?.let(vm::saveUserPhoto)
+        },
+    )
 
     var nameDraft by remember(name) { mutableStateOf(name) }
     var salaryDraft by remember(salaryExpr) { mutableStateOf(salaryExpr) }
@@ -218,12 +222,15 @@ fun SettingsTab(vm: MainViewModel) {
                     Column {
                         Text("بتظهر على بطاقتك في الرئيسية", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedButton(onClick = { photoPicker.launch("image/*") }) {
+                            OutlinedButton(onClick = { startPhotoPicker() }) {
                                 Text(if (photoSet) "تغيير" else "اختيار صورة", fontSize = 12.sp)
                             }
                             if (photoSet) {
                                 OutlinedButton(onClick = { vm.clearUserPhoto() }) { Text("إزالة", fontSize = 12.sp) }
                             }
+                        }
+                        if (photoPickerUnavailable) {
+                            Text("الجهاز ده مفيهوش تطبيق يفتح الصور. ثبّت أي تطبيق جاليري أو ملفات وجرب تاني.", fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
                         }
                     }
                 }
