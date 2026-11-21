@@ -236,6 +236,7 @@ fun MainScaffold(vm: MainViewModel) {
             Overlay.Charts -> ChartsScreen(vm)
             Overlay.Calendar -> CalendarScreen(vm)
             Overlay.Trash -> TrashScreen(vm)
+            Overlay.Notes -> NotesScreen(vm)
             Overlay.None -> AnimatedContent(
                 targetState = tab,
                 transitionSpec = { fadeIn(tween(240)) togetherWith fadeOut(tween(180)) },
