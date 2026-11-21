@@ -262,38 +262,18 @@ fun HomeTab(vm: MainViewModel) {
         item {
             Spacer(Modifier.height(4.dp))
             Text("أحدث العمليات", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
-            Spacer(Modifier.height(4.dp))
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { vm.setSearchQuery(it) },
-                modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("ابحث بالمبلغ أو الفئة أو الملاحظة", fontSize = 13.sp) },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                singleLine = true,
-                shape = RoundedCornerShape(14.dp),
-            )
         }
-        if (filteredTransactions.isEmpty() && searchQuery.isNotBlank()) {
-            item {
-                Text(
-                    "لا توجد نتائج مطابقة للبحث.",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp,
-                )
-            }
-        } else if (searchQuery.isNotBlank()) {
-            items(filteredTransactions.take(30), key = { it.id }) { tx ->
-                TransactionRow(vm, tx, accounts, hidden)
-            }
-        } else if (transactions.isEmpty()) {
-            item {
-                Text(
-                    "لسه مفيش عمليات. ابدأ بإضافة حساب من تبويب الحسابات.",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp,
-                )
-            }
+        if (transactions.isEmpty()) {
+            item { Text("لسه مفيش عمليات. ابدأ بإضافة حساب من تبويب الحسابات.", fontSize = 14.sp) }
         } else {
-            items(transactions.take(15), key = { it.id }) { tx ->
-                TransactionRow(vm, tx, accounts, hidden)
+            items(transactions.take(3), key = { it.id }) { tx ->
+                if (tx.hidden) HiddenTransactionCard()
+                else TransactionRow(vm, tx, accounts, hidden, readOnly = true)
+            }
+            item {
+                TextButton(onClick = { vm.openOverlay(Overlay.FullLog) }, modifier = Modifier.fillMaxWidth()) {
+                    Text(if (transactions.size > 3) "عرض السجل بالكامل" else "إدارة السجل")
+                }
             }
         }
         item { Spacer(Modifier.height(24.dp)) }
@@ -429,9 +409,9 @@ fun SalaryCard(vm: MainViewModel, salaryExpr: String, hidden: Boolean) {
 }
 
 @Composable
-fun TransactionRow(vm: MainViewModel, tx: TransactionEntity, accounts: List<AccountEntity>, hidden: Boolean) {
+fun TransactionRow(vm: MainViewModel, tx: TransactionEntity, accounts: List<AccountEntity>, hidden: Boolean, readOnly: Boolean = false) {
     var confirmDelete by remember { mutableStateOf(false) }
-    val accountName = accounts.firstOrNull { it.id == tx.accountId }?.name ?: "؟"
+    val accountName = accounts.firstOrNull { it.id == tx.accountId }?.name ?: "حساب محذوف"
     val toName = tx.toAccountId?.let { id -> accounts.firstOrNull { it.id == id }?.name }
     val (label, sign, color) = when (tx.type) {
         "INCOME" -> Triple("دخل", "+", IncomeGreen)
@@ -447,7 +427,7 @@ fun TransactionRow(vm: MainViewModel, tx: TransactionEntity, accounts: List<Acco
     }
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        modifier = Modifier.fillMaxWidth().clickable { confirmDelete = true },
+        modifier = if (readOnly) Modifier.fillMaxWidth() else Modifier.fillMaxWidth().clickable { confirmDelete = true },
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -573,13 +553,14 @@ fun HeroFlipButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
 fun BankHeroCard(vm: MainViewModel, name: String, special: Boolean, hidden: Boolean) {
     val context = LocalContext.current
     val photoSet by vm.userPhotoSet.collectAsState()
+    val photoRevision by vm.userPhotoRevision.collectAsState()
     val monthSpend by vm.monthSpendPiasters.collectAsState()
     val budgets by vm.budgets.collectAsState()
     val remainingBudget by vm.remainingMonthBudgetPiasters.collectAsState()
     val accounts by vm.accounts.collectAsState()
     val transactions by vm.transactions.collectAsState()
 
-    val photo = remember(photoSet) {
+    val photo = remember(photoSet, photoRevision) {
         if (!photoSet) null else runCatching {
             android.graphics.BitmapFactory.decodeFile(context.filesDir.resolve("user_photo.jpg").absolutePath)?.asImageBitmap()
         }.getOrNull()
@@ -736,5 +717,112 @@ fun BankHeroCard(vm: MainViewModel, name: String, special: Boolean, hidden: Bool
                 }
             }
         }
+    }
+}
+
+
+@Composable
+fun HiddenTransactionCard(onReveal: (() -> Unit)? = null) {
+    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.VisibilityOff, contentDescription = null)
+            Text("عملية مخفية بكلمة مرور", modifier = Modifier.weight(1f).padding(horizontal = 10.dp), fontSize = 14.sp)
+            if (onReveal != null) TextButton(onClick = onReveal) { Text("إظهار") }
+        }
+    }
+}
+
+@Composable
+fun FullLogScreen(vm: MainViewModel) {
+    val accounts by vm.accounts.collectAsState()
+    val transactions by vm.transactions.collectAsState()
+    val hidden by vm.privacyHidden.collectAsState()
+    val hasPassword by vm.hasPassword.collectAsState()
+    val logUnlocked by vm.logUnlocked.collectAsState()
+    var query by remember { mutableStateOf("") }
+    var passwordAction by remember { mutableStateOf<String?>(null) }
+    var pendingHide by remember { mutableStateOf<Long?>(null) }
+    var password by remember { mutableStateOf("") }
+    var passwordAgain by remember { mutableStateOf("") }
+    var message by remember { mutableStateOf<String?>(null) }
+    var deleting by remember { mutableStateOf<TransactionEntity?>(null) }
+    val shown = transactions.filter { tx ->
+        if (tx.hidden && !logUnlocked) query.isBlank()
+        else query.isBlank() || tx.note.contains(query, true) || tx.category.contains(query, true) ||
+            formatMoney(tx.amountPiasters).contains(query) || accounts.any { it.id == tx.accountId && it.name.contains(query, true) }
+    }
+    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        item {
+            Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("السجل بالكامل", fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                TextButton(onClick = { vm.closeOverlay() }) { Text("رجوع") }
+            }
+            Text("التعديل والحذف والإخفاء من هنا. العمليات المخفية بتفضل محسوبة في الأرصدة.", fontSize = 12.sp)
+            OutlinedTextField(value = query, onValueChange = { query = it }, label = { Text("بحث في السجل") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        }
+        if (shown.isEmpty()) item { Text("لا توجد عمليات مطابقة.") }
+        items(shown, key = { it.id }) { tx ->
+            if (tx.hidden && !logUnlocked) {
+                HiddenTransactionCard(onReveal = { password = ""; message = null; passwordAction = "unlock" })
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    TransactionRow(vm, tx, accounts, hidden, readOnly = true)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                        TextButton(onClick = { vm.openOverlay(Overlay.AddTransaction(tx.type, tx.id)) }) { Text("تعديل") }
+                        TextButton(onClick = { deleting = tx }) { Text("حذف", color = MaterialTheme.colorScheme.error) }
+                        TextButton(onClick = {
+                            if (tx.hidden) vm.setTransactionHidden(tx.id, false)
+                            else if (hasPassword) vm.setTransactionHidden(tx.id, true)
+                            else {
+                                pendingHide = tx.id; password = ""; passwordAgain = ""; message = null; passwordAction = "create"
+                            }
+                        }) { Text(if (tx.hidden) "إلغاء الإخفاء" else "إخفاء بكلمة مرور") }
+                    }
+                }
+            }
+        }
+        item { Spacer(Modifier.height(24.dp)) }
+    }
+    deleting?.let { tx ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { deleting = null },
+            title = { Text("حذف العملية؟") },
+            text = { Text("هتتنقل لسلة المحذوفات، والأرصدة المرتبطة بيها هتتحدث. تقدر ترجعها من السلة.") },
+            confirmButton = { TextButton(onClick = { vm.deleteTransaction(tx.id); deleting = null }) { Text("حذف") } },
+            dismissButton = { TextButton(onClick = { deleting = null }) { Text("إلغاء") } },
+        )
+    }
+    if (passwordAction != null) {
+        val creating = passwordAction == "create"
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { passwordAction = null; pendingHide = null },
+            title = { Text(if (creating) "حماية العملية بكلمة مرور" else "إظهار العمليات المخفية") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(if (creating) "كلمة المرور دي هتحمي العمليات المخفية والأرقام الخاصة. احفظها كويس." else "اكتب كلمة المرور عشان تظهر العمليات المخفية لحد ما تخرج من صفحة السجل.", fontSize = 13.sp)
+                    OutlinedTextField(value = password, onValueChange = { password = it }, label = { Text("كلمة المرور") }, singleLine = true, visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation())
+                    if (creating) OutlinedTextField(value = passwordAgain, onValueChange = { passwordAgain = it }, label = { Text("تأكيد كلمة المرور") }, singleLine = true, visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation())
+                    message?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 12.sp) }
+                }
+            },
+            confirmButton = { TextButton(onClick = {
+                if (creating) {
+                    if (password.length < 4) message = "اكتب 4 حروف أو أرقام على الأقل."
+                    else if (password != passwordAgain) message = "كلمتا المرور مش متطابقتين."
+                    else {
+                        vm.setPassword(password)
+                        pendingHide?.let { vm.setTransactionHidden(it, true) }
+                        pendingHide = null; passwordAction = null; password = ""; passwordAgain = ""
+                    }
+                } else {
+                    when (val result = vm.tryUnlockLog(password)) {
+                        is MainViewModel.UnlockResult.Success -> { passwordAction = null; password = "" }
+                        is MainViewModel.UnlockResult.Wrong -> message = "كلمة مرور غلط. متبقي ${result.attemptsLeft} محاولات."
+                        is MainViewModel.UnlockResult.Locked -> message = "استنى ${result.secondsLeft} ثانية قبل المحاولة من تاني."
+                    }
+                }
+            }) { Text(if (creating) "حفظ وإخفاء" else "فتح") } },
+            dismissButton = { TextButton(onClick = { passwordAction = null; pendingHide = null }) { Text("إلغاء") } },
+        )
     }
 }
